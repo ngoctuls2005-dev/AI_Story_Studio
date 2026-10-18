@@ -42,7 +42,17 @@ AGP 9.4 yêu cầu Gradle 9.6, hỗ trợ API tối đa 37 và Build Tools 36.0.
     .\gradlew.bat assembleDebug
     .\gradlew.bat testDebugUnitTest
     .\gradlew.bat lintDebug
-    .\gradlew.bat connectedDebugAndroidTest
+    .\scripts\test-instrumentation.ps1 -DeviceSerial emulator-5554
+
+## Chạy bộ kiểm thử A-06
+
+Các script PowerShell trong `scripts/` kiểm tra JDK 25, Android SDK, ADB, emulator và số lượng test trong report. Log từng lần chạy nằm dưới `app/build/reports/a06/` (thư mục build bị Git bỏ qua). Instrumentation mặc định dùng runner trực tiếp để giữ app data.
+
+    .\scripts\test-unit.ps1
+    .\scripts\test-instrumentation.ps1 -DeviceSerial emulator-5554
+    .\scripts\test-all.ps1 -DeviceSerial emulator-5554
+
+Instrumentation chỉ chạy trên emulator. Mặc định script build APK rồi dùng `adb -s <serial> install -r` và AndroidJUnitRunner trực tiếp; thao tác này giữ app data. Khi có nhiều thiết bị online, bắt buộc chỉ định serial emulator. Thiết bị vật lý bị từ chối làm đích test. Có thể chọn `-UseGradleRunner` khi chỉ có một emulator và chấp nhận rằng `connectedDebugAndroidTest` của AGP gỡ APK app/test sau khi chạy, làm mất app data của AVD. Mọi lệnh dùng ADB server chuẩn 5037; không đổi cấu hình hệ thống. Không test bằng API key hoặc endpoint bên ngoài.
 
 APK debug được tạo tại app/build/outputs/apk/debug/app-debug.apk.
 
@@ -55,6 +65,8 @@ Bật USB debugging, kết nối thiết bị và chạy:
     adb shell monkey -p com.hoangtu.aistorystudio -c android.intent.category.LAUNCHER 1
 
 Tiêu chí điện thoại thật chỉ được ghi PASS sau khi cài và mở trên thiết bị vật lý đang ở trạng thái device.
+
+Instrumentation emulator không thay cho smoke test điện thoại thật của A-01.
 
 ## Lỗi NIO loopback trong shell Codex trên Windows
 

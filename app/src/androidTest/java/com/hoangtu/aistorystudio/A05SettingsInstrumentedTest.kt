@@ -9,8 +9,10 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.hoangtu.aistorystudio.core.ai.settings.AiProviderSettingsRepository
 import java.io.File
 import java.nio.charset.StandardCharsets
+import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -24,43 +26,54 @@ class A05SettingsInstrumentedTest {
 
     @Test
     fun defaultProviderCanSaveHideValidateAndDeleteApiKey() {
-        val testApiKey = "test-only-api-key-fixture-a05"
-        composeRule.onNodeWithTag("navigation_settings").performClick()
-        composeRule.waitUntil(10_000) {
-            composeRule.onAllNodesWithText("Experiential Labs").fetchSemanticsNodes().isNotEmpty()
-        }
+        val repository: AiProviderSettingsRepository =
+            (composeRule.activity.application as StudioApplication).aiProviderSettingsRepository
+        val snapshot = runBlocking { DefaultProviderSettingsSnapshot.capture(repository) }
+        try {
+            val testApiKey = "test-only-api-key-fixture-a05"
+            composeRule.onNodeWithTag("navigation_settings").performClick()
+            composeRule.waitUntil(10_000) {
+                composeRule.onAllNodesWithText("Experiential Labs").fetchSemanticsNodes().isNotEmpty()
+            }
 
-        composeRule.onNodeWithTag("provider_edit_experiential-labs").performClick()
-        composeRule.onNodeWithTag("api_key_input").performTextInput(testApiKey)
-        composeRule.onNodeWithTag("api_key_visibility_toggle").performClick()
-        composeRule.onNodeWithText("Ẩn").assertIsDisplayed()
-        composeRule.onNodeWithTag("api_key_visibility_toggle").performClick()
-        composeRule.onNodeWithText("Hiện").assertIsDisplayed()
+            composeRule.onNodeWithTag("provider_edit_experiential-labs").performClick()
+            composeRule.onNodeWithTag("api_key_input").performTextInput(testApiKey)
+            composeRule.onNodeWithTag("api_key_visibility_toggle").performClick()
+            composeRule.onNodeWithText("Ẩn").assertIsDisplayed()
+            composeRule.onNodeWithTag("api_key_visibility_toggle").performClick()
+            composeRule.onNodeWithText("Hiện").assertIsDisplayed()
 
-        composeRule.onNodeWithTag("provider_save").performScrollTo().performClick()
-        composeRule.waitUntil(10_000) {
-            composeRule.onAllNodesWithText("Đã lưu khóa an toàn").fetchSemanticsNodes().isNotEmpty()
-        }
-        composeRule.onNodeWithText("Cấu hình hợp lệ cục bộ; chưa kiểm tra mạng").assertExists()
-        assertTrue(composeRule.onAllNodesWithText(testApiKey).fetchSemanticsNodes().isEmpty())
-        val preferencesFile = File(
-            composeRule.activity.filesDir,
-            "datastore/ai_provider_settings.preferences_pb"
-        )
-        assertTrue(preferencesFile.exists())
-        val storedBytes = String(preferencesFile.readBytes(), StandardCharsets.ISO_8859_1)
-        assertFalse(storedBytes.contains(testApiKey))
+            composeRule.onNodeWithTag("provider_save").performScrollTo().performClick()
+            composeRule.waitUntil(10_000) {
+                composeRule.onAllNodesWithText("Đã lưu khóa an toàn").fetchSemanticsNodes().isNotEmpty()
+            }
+            assertTrue(
+                composeRule.onAllNodesWithText("Cấu hình hợp lệ cục bộ; chưa kiểm tra mạng")
+                    .fetchSemanticsNodes().isNotEmpty()
+            )
+            assertTrue(composeRule.onAllNodesWithText(testApiKey).fetchSemanticsNodes().isEmpty())
+            val preferencesFile = File(
+                composeRule.activity.filesDir,
+                "datastore/ai_provider_settings.preferences_pb"
+            )
+            assertTrue(preferencesFile.exists())
+            val storedBytes = String(preferencesFile.readBytes(), StandardCharsets.ISO_8859_1)
+            assertFalse(storedBytes.contains(testApiKey))
 
-        composeRule.activityRule.scenario.recreate()
-        composeRule.waitUntil(10_000) {
-            composeRule.onAllNodesWithText("Đã lưu khóa an toàn").fetchSemanticsNodes().isNotEmpty()
-        }
+            composeRule.activityRule.scenario.recreate()
+            composeRule.waitUntil(10_000) {
+                composeRule.onAllNodesWithText("Đã lưu khóa an toàn").fetchSemanticsNodes().isNotEmpty()
+            }
 
-        composeRule.onNodeWithTag("api_key_delete_experiential-labs").performScrollTo().performClick()
-        composeRule.onNodeWithTag("api_key_confirm_delete").performClick()
-        composeRule.waitUntil(10_000) {
-            composeRule.onAllNodesWithText("API key đã bị xóa.").fetchSemanticsNodes().isNotEmpty()
+            composeRule.onNodeWithTag("api_key_delete_experiential-labs").performScrollTo().performClick()
+            composeRule.onNodeWithTag("api_key_confirm_delete").performClick()
+            composeRule.waitUntil(10_000) {
+                composeRule.onAllNodesWithText("API key đã bị xóa.").fetchSemanticsNodes().isNotEmpty()
+            }
+            composeRule.onNodeWithTag("provider_edit_experiential-labs").assertExists()
+            assertTrue(composeRule.onAllNodesWithText("Chưa có API key").fetchSemanticsNodes().isNotEmpty())
+        } finally {
+            runBlocking { snapshot.restore(repository) }
         }
-        composeRule.onNodeWithText("Chưa có API key").assertIsDisplayed()
     }
 }

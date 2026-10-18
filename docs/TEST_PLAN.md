@@ -41,7 +41,7 @@ Kết quả A-02 hiện có trên AVD Medium Phone API 37; đây là bằng ch�
 1. Kiểm tra git status, backlog, local.properties và các file secret để bảo đảm không stage dữ liệu cục bộ.
 2. Kiểm tra Gradle Wrapper, AGP, Kotlin/Compose plugin, SDK Platform/Build Tools và JDK daemon.
 3. Chạy gradlew.bat assembleDebug, sau đó testDebugUnitTest và lintDebug nếu môi trường cho phép.
-4. Khi emulator sẵn sàng, chạy connectedDebugAndroidTest, cài APK và mở launcher activity.
+4. Khi emulator sẵn sàng, chạy instrumentation qua `scripts/test-instrumentation.ps1` để chọn serial an toàn; Gradle `connectedDebugAndroidTest` có thể gỡ app data khỏi AVD sau test.
 5. Kết nối điện thoại thật, xác nhận thiết bị device (không phải offline/unauthorized), cài APK và mở app. Ghi model và Android API level.
 6. Kiểm tra repository không chứa local.properties, API key hoặc keystore; ghi SHA-256 APK/report nếu được tạo.
 
@@ -50,7 +50,7 @@ Lệnh Windows PowerShell:
     .\gradlew.bat assembleDebug
     .\gradlew.bat testDebugUnitTest
     .\gradlew.bat lintDebug
-    .\gradlew.bat connectedDebugAndroidTest
+    .\scripts\test-instrumentation.ps1 -DeviceSerial emulator-5554
     adb devices -l
     adb install -r .\app\build\outputs\apk\debug\app-debug.apk
     adb shell monkey -p com.hoangtu.aistorystudio -c android.intent.category.LAUNCHER 1
@@ -108,6 +108,32 @@ Unit test JVM tại `app/src/test/java/com/hoangtu/aistorystudio/core/ai/setting
 | Android Backup | Instrumentation parse resource rules, xác nhận cấu hình DataStore bị loại khỏi cloud backup, device transfer và full backup cũ. Không có tính năng backup thủ công trong A-05. |
 
 Kết quả A-05 lần này: 11 unit test A-05 (cùng 8 test A-04 và 1 test mẫu); AndroidJUnitRunner trực tiếp trên AVD API 37 chạy 18 test tổng cộng, 0 failure. `connectedDebugAndroidTest` qua Gradle báo BUILD SUCCESSFUL nhưng worker không lấy được device API level từ ADB port riêng và report không đủ test result; không tính trạng thái task đó là PASS. Lệnh ADB runner trực tiếp cùng test process-restart được ghi trong `docs/TASK_LOG.md`; log nằm trong `app/build/outputs/androidTest-results/connected/debug/` (thư mục build bị ignore).
+
+### Kiểm thử A-06 — MockWebServer và runner có xác minh số test
+
+Unit test JVM dùng JUnit 4 và MockWebServer 5.4.0, chỉ qua `testImplementation`. Server bind loopback; không gọi Internet, provider thật hay API key. Fixture chung nằm tại `app/src/test/.../testutil/` và dùng ID/timestamp cố định cho Character, Persona, Conversation, ChatMessage, NovelProject, Chapter, Scene, MemoryFact, Ai request/response và provider configuration.
+
+| Kịch bản | Assertion |
+|---|---|
+| HTTP 200/400/401/429/500 và body rỗng | Server trả đúng status; số request được xác nhận. |
+| Response trì hoãn và timeout | Body thành công sau delay; timeout phát `InterruptedIOException` trong giới hạn, không treo call. |
+| Socket đóng giữa body | Client nhận `IOException` khi đọc response, không coi stream bị cắt là đầy đủ. |
+| UTF-8 và SSE raw | Chuỗi tiếng Việt giữ nguyên; `text/event-stream` gồm nhiều chunk nhỏ và event `[DONE]` giữ nguyên thứ tự. |
+| Bộ đếm JUnit/AndroidJUnitRunner | Harness chấp nhận số test dương, từ chối 0 test, report lỗi và skip; runner trực tiếp cần `OK (N tests)` và trạng thái pass khớp N. |
+| Cô lập fixture | ID và scope hội thoại/dự án tách biệt, response AI và cấu hình provider ổn định. |
+| Không mạng | FakeAiProvider và unit tests chạy cục bộ; MockWebServer chỉ dùng loopback. Không tuyên bố Chat UI hoặc Novel Editor chạy offline vì consumer chưa được triển khai. |
+
+Lệnh lặp lại trên Windows PowerShell:
+
+    .\scripts\test-unit.ps1
+    .\scripts\test-instrumentation.ps1 -DeviceSerial emulator-5554
+    .\scripts\test-all.ps1 -DeviceSerial emulator-5554
+
+Script kiểm tra JDK 25, SDK/ADB và emulator; giữ ADB server ở cổng chuẩn 5037. Mặc định build/cài APK bằng `adb -s` và chạy AndroidJUnitRunner trực tiếp để giữ app data; khi có nhiều device, serial emulator phải được chọn tường minh. Thiết bị vật lý không được chọn làm đích. `-UseGradleRunner` chỉ chạy khi có một emulator online duy nhất; AGP sẽ gỡ APK app/test sau lượt connected task nên có thể làm mất app data trên AVD. Nếu report Gradle thiếu test, script chạy fallback trực tiếp và vẫn yêu cầu kết quả runner có test count dương. Log và report chỉ được tính khi phát sinh trong lần chạy hiện tại. `test-harness.ps1` xác minh 0 test/skip bị từ chối.
+
+Instrumentation regression bao gồm các test A-02, A-03, A-05 và test mẫu hiện hữu; test Compose đã có từ A-02. Không thêm bài test UI nghiệp vụ mới vì Chat/Novel UI thực tế chưa thuộc A-06. Test process restart tạo Preferences DataStore tạm trong cache của app với ID provider riêng, dùng Android Keystore thật, seed → force-stop → launch → verify rồi xóa key và tệp test; không thay đổi cấu hình provider người dùng.
+
+Trước A-06, Gradle từng hoàn tất với report 0 test khi Gradle worker và lệnh ADB dùng hai server port; lần chạy A-06 trên AVD cùng ADB mặc định 5037 tạo report 18 test. Lượt Gradle này gỡ APK app/test khỏi AVD theo log AGP; không có điện thoại vật lý online. Vì vậy runner trực tiếp trở thành mặc định để giữ app data. Không dựa vào dòng BUILD SUCCESSFUL nếu không có report/test count hợp lệ.
 
 ## Ma trận V1.0 sau khi có tính năng
 

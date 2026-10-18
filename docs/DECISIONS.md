@@ -81,3 +81,10 @@ Các quyết định dưới đây ghi lại hướng thiết kế và trạng t
 - **Lý do:** các phiên bản tương thích với AGP 9.4.1, Gradle 9.6.0 và Kotlin Compose plugin 2.2.10; KSP task sinh implementation DAO thành công.
 - **Tương thích MigrationTestHelper:** Room testing 2.8.5 cần kotlinx-serialization-core 1.8.1. Navigation/lifecycle hiện kéo 1.7.3; dependency runtime được căn về 1.8.1 để tránh `AbstractMethodError` khi đọc schema export.
 - **Giới hạn:** hiện chưa có migration nâng version. Không tăng DB version chỉ để tạo migration giả; thay đổi schema tiếp theo phải thêm migration có tên và test V1→V2 với dữ liệu fixture.
+
+## ADR-012 — Xác minh test runner và cô lập thiết bị
+
+- **Trạng thái:** áp dụng trong A-06.
+- **Quyết định:** chỉ chạy instrumentation trên emulator; mặc định chọn serial tường minh và dùng AndroidJUnitRunner trực tiếp qua `adb -s`. Gradle runner là tùy chọn, chỉ được phép khi một emulator online duy nhất được chọn. Mọi nhánh xác minh test count dương, zero skip/failure/error và output runner thành công; Gradle BUILD SUCCESSFUL một mình không chứng minh test đã chạy.
+- **Lý do:** A-05 từng ghi nhận Gradle báo build thành công nhưng worker không thấy emulator khi tiến trình ADB và Gradle dùng server port khác nhau. A-06 xác nhận dùng chung ADB 5037 khiến Gradle chạy đủ test trên emulator; đồng thời log cho thấy AGP gỡ app APK và test APK sau lượt chạy. Runner trực tiếp giữ app data và kiểm soát serial, nên là lựa chọn mặc định an toàn.
+- **Ràng buộc:** không thay đổi ADB hệ thống hoặc chạy test trên điện thoại thật. Không dùng Gradle runner trên nhiều device; người dùng cần chấp nhận AVD bị gỡ app data nếu chủ động chọn tùy chọn Gradle. MockWebServer và OkHttp chỉ là phụ thuộc test; provider mạng và parser SSE vẫn nằm ngoài A-06.

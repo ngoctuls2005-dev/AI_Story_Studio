@@ -22,6 +22,12 @@
 - Cập nhật docs/TASK_LOG.md với mã nhiệm vụ, file tạo/sửa, lệnh, kết quả, đường dẫn báo cáo/artifact và điều kiện nghiệm thu còn thiếu.
 - Tạo checkpoint Git cục bộ sau khi hoàn tất phần việc. Không push, merge, phát hành hoặc gửi dữ liệu ra ngoài nếu chưa được yêu cầu.
 
+### Chạy test trên Windows
+
+- Ưu tiên `scripts/test-unit.ps1` cho unit test và `scripts/test-all.ps1 -DeviceSerial <emulator-serial>` cho hồi quy đầy đủ. Các script xác minh JDK/SDK/ADB và từ chối kết quả không có test, test lỗi hoặc test bị bỏ qua.
+- Instrumentation mặc định phải chạy qua `scripts/test-instrumentation.ps1` trên emulator được chọn tường minh; script cài APK bằng `adb -s ... install -r` và giữ app data. Không dùng `connectedDebugAndroidTest` như runner mặc định vì AGP có thể gỡ app và test APK sau khi chạy.
+- Chỉ chọn `-UseGradleRunner` trên AVD có thể cài lại và không cần giữ app data; kiểm tra log/report cùng số lượng test, không dựa riêng vào `BUILD SUCCESSFUL`. Dùng `scripts/test-harness.ps1` để xác nhận guard số test trước khi sửa runner.
+
 ## Quy trình Git sau nhiệm vụ
 
 Khi người dùng yêu cầu đồng bộ GitHub, thực hiện tuần tự và ghi bằng chứng theo `docs/GIT_WORKFLOW.md`:

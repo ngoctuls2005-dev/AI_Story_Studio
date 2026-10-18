@@ -40,6 +40,13 @@ Data implementations:
 
 Chiều phụ thuộc đi từ UI về abstraction/domain. UI không truy cập trực tiếp DAO, OkHttp hay Android Keystore. I/O chạy ngoài main thread bằng Coroutines; Flow phát trạng thái lưu trữ và UI.
 
+## Test harness A-06
+
+- Các fixture dùng chung cho entity, phạm vi Roleplay/Novel, request/response AI và cấu hình provider nằm trong `app/src/test/.../testutil/`; định danh, timestamp và nội dung đều cố định, không chứa dữ liệu người dùng hoặc khóa thật.
+- `MockWebServer` 5.4.0 cùng OkHttp chỉ là `testImplementation`. Harness kiểm tra HTTP response cục bộ, độ trễ/timeout/ngắt body, UTF-8 tiếng Việt và raw SSE chia chunk có `[DONE]`; chưa có parser SSE hoặc provider mạng trong production.
+- Script PowerShell chỉ chấp nhận Android emulator và mặc định chạy AndroidJUnitRunner trực tiếp với `adb -s`; `install -r` giữ app data và chỉ cài vào serial đã xác minh. Gradle runner là tùy chọn riêng, chỉ cho phép một emulator online vì `connectedDebugAndroidTest` tự gỡ APK app/test khi kết thúc. Mọi đường chạy xác nhận số test dương, không có test skip/fail/error. Cách này ngăn Gradle báo BUILD SUCCESSFUL nhưng không chạy test nào bị hiểu nhầm là PASS.
+- Script dùng ADB server chuẩn 5037 nhưng không đổi cấu hình hệ thống. Runner trực tiếp không gỡ ứng dụng hoặc xóa app data; test chạy trên emulator, không chỉnh cài đặt điện thoại thật.
+
 ## Tổ chức mã đề xuất
 
 Giữ một module :app ban đầu; chia package theo trách nhiệm để giới hạn độ phức tạp build và phát hành APK cá nhân.

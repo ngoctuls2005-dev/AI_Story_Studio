@@ -278,3 +278,57 @@ Gradle phát cảnh báo protobuf DataStore gọi `sun.misc.Unsafe` đã depreca
 - Kiểm thử seed → force-stop → mở lại ứng dụng → verify đã xác nhận sử dụng key sau khi process mới khởi động. Không dùng API key cá nhân, mạng hoặc backend.
 - Rủi ro còn lại: API key plaintext hiện diện tạm trong bộ nhớ trong lúc nhập/giải mã và app/process được phép sử dụng Keystore key; thiết bị root hoặc process bị xâm nhập có thể gọi thao tác giải mã. Keystore mồ côi có thể còn nếu ghi/xóa metadata gặp lỗi; ciphertext không được giữ sống khi xóa được xác nhận. Chưa có backup thủ công, provider HTTP thật, SSE hoặc kết nối API (C-03/C-04 ngoài phạm vi).
 - A-05 đạt trong phạm vi backlog và prompt. Không tuyên bố API provider kết nối thành công. A-01 vẫn chưa hoàn tất do thiếu smoke test điện thoại thật. Không triển khai A-06 hoặc C-03.
+
+## A-06 — 19/10/2026
+
+### Phạm vi và trạng thái trước khi sửa
+
+- Đọc đầy đủ `AGENTS.md`, `docs/BACKLOG_V1.md`, `docs/ARCHITECTURE.md`, `docs/DECISIONS.md`, `docs/TEST_PLAN.md`, `docs/TASK_LOG.md` và `docs/GIT_WORKFLOW.md`; đọc cả yêu cầu A-06 được người dùng đính kèm. Tiêu chí backlog A-06: lệnh build/test lặp lại được, Codex có AGENTS, test runner/checklist, unit và Compose test cấu hình đúng, có MockWebServer.
+- Git sạch trên `main`, HEAD `27e3aace` (`27e3aac`, checkpoint A-05). Lịch sử A-01..A-05 còn nguyên; `e1dac58` A-04 và `27e3aac` A-05 có trong lịch sử. Không sửa commit cũ, không push.
+- A-01 vẫn chưa hoàn thành: thiếu smoke test điện thoại thật. Kiểm tra ADB trước và sau chạy chỉ thấy `emulator-5554`, AVD `Medium_Phone_API_37.0`, Android API 37; không có điện thoại vật lý online.
+- Toolchain được giữ nguyên: JBR/JDK 25, Gradle Wrapper 9.6.0, AGP 9.4.1, Kotlin Compose plugin 2.2.10, Android SDK 37. ADB 37.0.1; AVD API 37. Không nâng cấp AGP/Gradle/Kotlin/SDK.
+- Chia subtask: (1) đọc backlog/checkpoint và kiểm tra runner/device; (2) thêm MockWebServer và fixture dùng chung; (3) viết test HTTP cục bộ; (4) tạo script kiểm tra môi trường, chọn emulator, xác minh test count; (5) build/unit/lint/instrumentation, rà bảo mật; (6) cập nhật tài liệu và checkpoint.
+
+### Nguyên nhân runner cũ và chính sách chạy mới
+
+- TASK_LOG A-05 có bằng chứng `connectedDebugAndroidTest` từng báo `BUILD SUCCESSFUL` nhưng Gradle worker báo không tìm thấy `emulator-5554` và report không có test đáng tin cậy. Các lượt lỗi cũ dùng ADB server port 5038; A-06 chạy lại trên ADB server chuẩn/chung 5037, JBR 25 và `ANDROID_SERIAL=emulator-5554`, Gradle worker kết nối được và tạo report 18 test. Bằng chứng này cho thấy sự lệch ADB server port/tiến trình là nguyên nhân thực tế trong môi trường đó; không kết luận AGP runner luôn lỗi.
+- Log `--info` của AGP xác nhận `connectedDebugAndroidTest` tự gỡ app APK và test APK khỏi AVD sau khi chạy. Lượt đó chỉ có emulator online, không có điện thoại thật. Có thể mất app data trên AVD khi uninstall. Vì vậy `test-instrumentation.ps1` mặc định chạy AndroidJUnitRunner trực tiếp theo serial đã xác minh là emulator, qua `adb -s ... install -r`; Gradle runner chỉ là tùy chọn `-UseGradleRunner`, giới hạn một emulator online và cảnh báo rõ hành vi uninstall. Runner trực tiếp không gỡ app hoặc xóa app data.
+- Đường chọn nhiều thiết bị được cài đặt: khi nhiều thiết bị online cần chỉ định serial; serial phải là emulator (`ro.kernel.qemu=1`), không chọn điện thoại thật. Môi trường chỉ có một AVD nên nhánh nhiều thiết bị chưa được chạy thực tế.
+
+### Thay đổi
+
+- Thêm MockWebServer3/OkHttp 5.4.0 qua `testImplementation` để không thêm HTTP vào production. Fixture server có HTTP 200/400/401/429/500, rỗng, delay tùy chỉnh, timeout, đóng socket giữa response, UTF-8 và SSE raw chunk có `[DONE]`.
+- Thêm fixture dữ liệu cố định, tái sử dụng cho Character, Persona, Conversation, ChatMessage, NovelProject, Chapter, Scene, MemoryFact, AI request/response và provider config. ID/timestamp xác định; không chứa dữ liệu người dùng hoặc API key.
+- Thêm 5 test MockWebServer chạy HTTP loopback thật, cùng 2 test kiểm tra fixture. Test timeout xác minh `InterruptedIOException` trong giới hạn; response bị cắt phải ném `IOException`; teardown đóng OkHttp client và MockWebServer.
+- Thêm `test-unit.ps1`, `test-instrumentation.ps1`, `test-all.ps1`, helper `Test-Common.ps1` và `test-harness.ps1`. Script xác minh JDK/SDK/ADB/serial emulator, kiểm tra exit code, chỉ đọc report mới, từ chối 0 test/failure/error/skip và xác minh `OK (N tests)` cùng status count của AndroidJUnitRunner. Có chế độ unit `-Offline`. Không chạy trên thiết bị vật lý, không gọi `pm clear`/uninstall và không đổi cấu hình ADB hệ thống.
+- Cô lập hồi quy bảo mật A-05: `A05SettingsInstrumentedTest` snapshot/khôi phục cấu hình và key provider mặc định kể cả khi assertion lỗi; `A05CredentialRestartInstrumentedTest` dùng Preferences DataStore tạm trong cache cùng Android Keystore thật. Script chạy seed/force-stop/launch/verify qua process thật, lọc đúng test class, rồi xóa key và tệp test.
+- Cập nhật `AGENTS.md`, README, kiến trúc, quyết định ADR-012 và TEST_PLAN về dependency test-only, cách chọn device, server port, số test, giới hạn runner và hành vi uninstall của AGP.
+
+### Build và kiểm thử
+
+| Lệnh/kịch bản | Kết quả quan sát được |
+|---|---|
+| `scripts/test-harness.ps1` | PASS — chấp nhận fixture 1 test; chủ động từ chối JUnit 0 test, JUnit có skip, AndroidJUnitRunner `OK (0 tests)` và runner có test skip. |
+| `scripts/test-unit.ps1 -Offline` | PASS — Gradle `BUILD SUCCESSFUL`; 27 test, 0 failure/error/skipped. Chạy không tải dependency/mạng; gồm A-04 (8), A-05 (11), fixture mới (7) và test mẫu (1). XML mới trong `app/build/test-results/testDebugUnitTest/`; log `app/build/reports/a06/20261019-005438-069-unit.log`. |
+| `scripts/test-all.ps1 -DeviceSerial emulator-5554` (lượt cuối) | PASS — assembleDebug, unit 27/27, lint, instrumentation 18/18 và process restart seed 1/1 + verify 1/1 + cleanup 1/1; mọi failure/error/skip đều 0. APK được cài bằng `adb -s emulator-5554 install -r`; không uninstall. Log `app/build/reports/a06/20261019-011801-055-all-build-unit-lint.log`, `20261019-011928-134-instrumentation-direct-build.log`, `20261019-011928-134-instrumentation-direct-runner.log`, `20261019-011928-134-process-restart-seed.log`, `20261019-011928-134-process-restart-verify.log`, `20261019-011928-134-process-restart-cleanup.log`. |
+| `scripts/test-instrumentation.ps1 -DeviceSerial emulator-5554 -ForceDirectRunner` | PASS trên phiên bản script lúc chạy trước khi thêm process restart tự động — direct runner trả `OK (18 tests)`, passed-status 18/18, failure 0, skip 0. Tùy chọn cũ được đổi thành direct runner mặc định và `-UseGradleRunner` opt-in. |
+| `scripts/test-all.ps1 -DeviceSerial emulator-5554` (lượt Gradle trước khi đặt direct làm mặc định) | PASS — build/unit/lint thành công, unit 27/27; `connectedDebugAndroidTest` trên emulator API 37 tạo XML 18 test, 0 failure/error/skip. Log `app/build/reports/a06/20261019-005057-009-instrumentation-gradle.log`, XML `app/build/outputs/androidTest-results/connected/debug/Medium_Phone_API_37.0(AVD) - 17/TEST-emulator-5554.xml`. AGP gỡ app/test khỏi AVD sau lượt này; không có điện thoại vật lý kết nối. |
+| `gradlew.bat assembleDebug testDebugUnitTest lintDebug --console=plain` | PASS — chạy lại sau pipeline cuối, exit 0, `BUILD SUCCESSFUL`, 53 actionable tasks (1 executed, 52 up-to-date). Unit test được thực thi đầy đủ trong pipeline phía trên. APK debug tại `app/build/outputs/apk/debug/app-debug.apk`. |
+| `lintDebug` | PASS — 0 error, 15 warning. Không phát hiện lỗi nghiêm trọng mới; các cảnh báo gồm label/resource scaffold, dependency có phiên bản mới hơn (trong đó OkHttp/MockWebServer 5.5.0), không nâng cấp không cần thiết. Report `app/build/reports/lint-results-debug.html`, `.sarif`, `.txt`. |
+| PowerShell | PASS — cả 5 script được phân tích cú pháp; `test-all.ps1` chạy thành công hoàn chỉnh, gồm harness guard và process restart. |
+| `git diff --check` | PASS — không có lỗi whitespace; Git chỉ cảnh báo một số file hiện dùng LF sẽ được đổi sang CRLF theo cấu hình làm việc. |
+
+Trong các lượt trung gian, runner phát hiện assertion A-05 giả định nhãn provider là duy nhất sau khi thêm fixture provider; đã đổi sang truy vấn toàn bộ node. Lượt process restart đầu truyền phase nhưng chưa lọc class nên vô tình chạy cả 18 test; đã thêm bộ lọc `-e class` cho riêng `A05CredentialRestartInstrumentedTest`. Pipeline cuối sau hai sửa đổi đạt toàn bộ số test ở bảng trên.
+
+### Rà soát bảo mật và giới hạn
+
+- Unit suite offline; MockWebServer bind loopback, không có request Internet. Fixture và log không chứa API key thật, khóa, dữ liệu truyện/hội thoại riêng tư hoặc database người dùng. Thay đổi phụ thuộc chỉ ở `testImplementation`/version catalog; không có API provider hoặc SSE parser production.
+- Lượt Gradle instrumentation đã uninstall app package khỏi AVD theo hành vi AGP nêu trên; không có điện thoại vật lý online, và APK app/test được cài lại qua lượt direct runner cuối. Dữ liệu app cũ trên AVD không được khôi phục. Đây là tác động môi trường cần lưu ý; script mặc định đã đổi để tránh lặp lại.
+- Pha cleanup cuối đạt 1/1; kiểm tra độc lập bằng `adb -s emulator-5554 shell run-as com.hoangtu.aistorystudio ls cache/a06-provider-settings-test.preferences_pb` xác nhận file không còn. Lệnh dò ban đầu dùng `adb shell sh -c 'test ! -e ...'` bị lỗi truyền đối số qua shell; đã xác minh lại trực tiếp bằng `ls`, không còn file DataStore test.
+- Chưa kiểm thử lựa chọn giữa nhiều emulator vì hiện chỉ có một AVD online. Chưa có Chat UI/Novel Editor, nên test chỉ xác nhận provider/fake và harness, không tuyên bố màn hình sản phẩm chạy offline. A-01 vẫn thiếu smoke test điện thoại thật.
+- Cảnh báo runtime protobuf `sun.misc.Unsafe` và việc AGP không strip được một số native library vẫn xuất hiện từ dependency/toolchain hiện hữu; build/test đạt. Lint gợi ý cập nhật test-only OkHttp/MockWebServer nhưng không có lỗi lint mới nghiêm trọng.
+
+### Kết luận
+
+- A-06 đạt tiêu chí trong phạm vi backlog: build, regression unit/instrumentation, MockWebServer hoạt động, runner xác minh số test, zero/skip guard, offline tests, không lỗi lint nghiêm trọng mới và quy trình Windows có thể lặp lại.
+- A-01 vẫn ở trạng thái đạt một phần cho đến khi smoke test trên điện thoại thật. Không triển khai A-07, C-01, C-03 hoặc nghiệp vụ ứng dụng.
