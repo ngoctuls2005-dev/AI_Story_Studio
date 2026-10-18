@@ -167,8 +167,13 @@ captures/
 # Khoa ky va cau hinh bi mat
 *.jks
 *.keystore
+*.p12
+*.pfx
+*.pem
+*.key
 key.properties
 secrets.properties
+release-signing.properties
 .env
 .env.*
 

@@ -56,6 +56,14 @@ Instrumentation chỉ chạy trên emulator. Mặc định script build APK rồ
 
 APK debug được tạo tại app/build/outputs/apk/debug/app-debug.apk.
 
+## Build APK release
+
+`applicationId` cố định là `com.hoangtu.aistorystudio`. Tạo keystore một lần ở ngoài repository, giữ bản sao lưu ngoài máy và dùng lại cùng khóa cho mọi bản cập nhật. Hướng dẫn chi tiết tạo, bảo quản, tăng `versionCode` và kiểm tra APK nằm trong [docs/RELEASE_SIGNING.md](docs/RELEASE_SIGNING.md).
+
+Chạy `.\scripts\build-release.ps1` để nhập đường dẫn/alias và mật khẩu qua prompt cục bộ; mật khẩu không được in ra terminal. Script gọi Gradle Wrapper với `--no-configuration-cache`, xác minh APK bằng `apksigner` rồi xóa/khôi phục biến môi trường trong process. Có thể gọi trực tiếp `:app:assembleRelease` nếu đã cấu hình đủ bốn biến môi trường `ASTORY_RELEASE_*` trong PowerShell hiện tại.
+
+Kiểm thử V1→V2 chỉ chạy trên emulator mới, riêng tư và không có ứng dụng cùng ID: `.\scripts\test-release-upgrade.ps1 -DeviceSerial <serial>`. Nếu process chưa có biến signing, script hỏi đường dẫn/alias và nhận mật khẩu qua prompt ẩn; sau đó xác minh applicationId, chữ ký, versionCode và dữ liệu fixture trước/sau `adb install -r`. Script không gỡ ứng dụng. Không chạy trên điện thoại chứa dữ liệu cá nhân.
+
 ## Cài và mở APK
 
 Bật USB debugging, kết nối thiết bị và chạy:

@@ -105,6 +105,10 @@ Không tạo sẵn package rỗng chỉ để khớp sơ đồ. Tạo từng ph�
 - AGP 9.4 yêu cầu Gradle 9.6, hỗ trợ tối đa API 37 và Build Tools 36.0.0; các giá trị hiện tại khớp bảng AGP. Wrapper dùng Gradle daemon JDK 25. JDK 27 trên PATH chưa được Gradle 9.6 công bố hỗ trợ để chạy daemon, nên cần giữ cấu hình daemon 25.
 - AGP 9 có Kotlin tích hợp và khai báo phụ thuộc KGP 2.2.10; Kotlin Compose plugin hiện cũng là 2.2.10. Build thực tế xác nhận cấu hình này biên dịch được. Không nâng phiên bản nếu chưa có lỗi tái hiện hoặc quyết định nâng cấp có kiểm thử.
 - Compose BOM và AndroidX là các phiên bản dự án hiện tại; thay đổi chúng cần lý do và kiểm thử hồi quy.
+- `applicationId` cố định là `com.hoangtu.aistorystudio`; `app.versionCode` nằm trong `gradle.properties` và phải tăng trước mỗi bản phát hành mới. Release signing chỉ được cấu hình từ biến môi trường process; thiếu input hoặc keystore nằm trong repository thì release build fail closed. Debug tiếp tục dùng debug keystore riêng do Android SDK quản lý.
+- Release task không dùng Gradle Configuration Cache (`--no-configuration-cache`) để giảm việc credential ký đi vào task graph/cache; mật khẩu không truyền trên dòng lệnh hoặc ghi log. Hướng dẫn và quy trình cập nhật nằm trong `docs/RELEASE_SIGNING.md`.
+- R8/shrinking hiện tắt cho release. Khi thử bật tối ưu hóa package scope, APK bị crash runtime trên AVD; cấu hình chỉ được bật lại sau khi có kiểm thử release thực tế bao gồm mở ứng dụng và luồng cài đè.
+- Kiểm thử APK V1→V2 dùng test fixture trong app-private cache trên emulator cô lập; không dùng Room migration giả. Kiểm thử không gỡ app, và runner từ chối emulator đã có ứng dụng cùng ID.
 
 ## Nguồn tham khảo
 

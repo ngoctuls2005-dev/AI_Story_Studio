@@ -159,3 +159,14 @@ Trước A-06, Gradle từng hoàn tất với report 0 test khi Gradle worker v
 ## Tiêu chí phát hành
 
 Áp dụng Gate G0..G5 và T-01..T-14 trong backlog. Chất lượng câu văn và tính nhất quán của mô hình AI cần thêm đánh giá thủ công; test deterministic chỉ xác nhận dữ liệu/context được chọn chính xác, không chứng minh model luôn trả lời đúng.
+
+## Kiểm thử D-06 — ký release và cập nhật APK
+
+- Build debug bằng `.\gradlew.bat assembleDebug`; debug dùng certificate riêng do Android SDK tạo.
+- Build release bằng `.\scripts\build-release.ps1`. Script nhập đường dẫn/alias và mật khẩu trực tiếp qua prompt cục bộ, truyền mật khẩu trong process environment, dùng `--no-configuration-cache` và xác minh release APK bằng `apksigner`. Không ghi password vào command line, log hay repository.
+- `app.versionCode` bắt đầu ở 1 trong `gradle.properties`; trước mỗi APK phát hành, tăng số này lên giá trị lớn hơn số cao nhất đã cài/phân phối. Không giảm hoặc tái sử dụng code. Override `-Papp.versionCode=2` chỉ phục vụ test V1→V2.
+- Chuẩn bị một AVD mới/cô lập, xác nhận app ID chưa cài, rồi chạy `.\scripts\test-release-upgrade.ps1 -DeviceSerial <emulator-serial>`. Script build V1/V2 bằng cùng keystore, dùng `aapt` xác nhận `com.hoangtu.aistorystudio` và version code, `apksigner` xác nhận chữ ký/fingerprint, so chứng chỉ debug/release, cài V1 rồi cài V2 với `adb install -r`.
+- Một test instrumentation lưu marker tổng hợp trong `targetContext.cacheDir` trước khi cài đè và đọc/xóa marker sau cập nhật. Đây là bằng chứng dữ liệu app-private còn tồn tại qua package update; chưa thay thế D-07 kiểm thử đầy đủ Room fixture/migration. Test không tạo hoặc thay đổi migration Room.
+- Script chỉ nhận serial emulator, dừng nếu ứng dụng đã cài, và không dùng uninstall/clear data. Không chạy trên điện thoại thật hoặc emulator chứa dữ liệu cá nhân. Nếu không có emulator riêng, trạng thái cài đè và giữ dữ liệu phải ghi BLOCKED.
+- Test APK được lấy từ androidTest debug variant rồi ký với chứng chỉ test release để instrumentation có thể chạy trong package release; APK này chỉ là harness kiểm thử. R8/shrinking release tắt do APK tối ưu trước đó crash runtime; chỉ bật lại sau khi có test runtime release.
+- Thông tin tạo keystore và sao lưu an toàn được ghi trong `docs/RELEASE_SIGNING.md`; khóa thật do người dùng quản lý và không được đưa vào Git.

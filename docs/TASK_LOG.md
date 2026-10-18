@@ -332,3 +332,52 @@ Trong các lượt trung gian, runner phát hiện assertion A-05 giả định 
 
 - A-06 đạt tiêu chí trong phạm vi backlog: build, regression unit/instrumentation, MockWebServer hoạt động, runner xác minh số test, zero/skip guard, offline tests, không lỗi lint nghiêm trọng mới và quy trình Windows có thể lặp lại.
 - A-01 vẫn ở trạng thái đạt một phần cho đến khi smoke test trên điện thoại thật. Không triển khai A-07, C-01, C-03 hoặc nghiệp vụ ứng dụng.
+
+## D-06 — Signing APK release và kiểm thử cập nhật — 19/10/2026
+
+### Phạm vi và hiện trạng trước khi làm
+
+- Đọc `AGENTS.md`, backlog, architecture, decisions, roadmap, test plan, task log và Git workflow; backlog yêu cầu giữ applicationId, khóa release ngoài repository, tăng versionCode và kiểm chứng cập nhật V1→V2 cùng chữ ký bằng `adb install -r`.
+- Git ban đầu sạch trên `main`, HEAD `27e3aace` (checkpoint A-06); không push. `applicationId` là `com.hoangtu.aistorystudio`, `versionCode` hiện tại là 1.
+- Toolchain giữ nguyên: JBR 25, Gradle Wrapper 9.6.0, AGP 9.4.1, Android SDK 37, Build Tools 36.0.0. ADB server 5037.
+- ADB chỉ thấy emulator `emulator-5554` (AVD đang có) và AVD thử nghiệm riêng `emulator-5556`; không có điện thoại vật lý online. Emulator 5554 chỉ nhận APK debug qua `install -r`; không chạy `connectedDebugAndroidTest`.
+- Không tìm thấy cấu hình signing release hoặc keystore release sẵn có. Chỉ tạo keystore PKCS12 ngẫu nhiên dùng một lần dưới `C:\jtmp` để xác minh pipeline; không tạo hoặc thay khóa production của người dùng.
+
+### Thay đổi
+
+- `app/build.gradle.kts`: đọc `app.versionCode` từ Gradle property, kiểm tra miền version hợp lệ, giữ applicationId ổn định, tách debug/release signing, chỉ đọc signing values từ bốn biến process `ASTORY_RELEASE_*`; release build từ chối khi thiếu biến, keystore không tồn tại, đường dẫn tương đối hoặc nằm trong repository. Release task không bật signing nếu cấu hình thiếu.
+- `gradle.properties`: thêm `app.versionCode=1`.
+- `.gitignore`: bổ sung `*.p12`, `*.pfx`, `*.pem`, `*.key`, `release-signing.properties`; giữ ignore cho `.jks`, `.keystore`, `key.properties`, `secrets.properties`, local.properties, APK và build output.
+- `scripts/build-release.ps1`: prompt đường dẫn/alias, nhận mật khẩu ẩn, đặt biến chỉ trong process khi gọi Gradle Wrapper với `--no-configuration-cache`, xác minh APK bằng `apksigner` rồi khôi phục/xóa môi trường tạm.
+- `scripts/test-release-upgrade.ps1`: chỉ nhận emulator, từ chối nếu app đã cài, dựng V1/V2 bằng cùng keystore và version code tăng tạm một đơn vị, kiểm tra manifest/chứng chỉ, cài bằng `adb install -r`, seed/verify/delete fixture app-private, quét APK/log/file Git tracked và untracked để không chứa keystore/signing secrets. Không uninstall hoặc clear data.
+- `app/src/androidTest/java/com/hoangtu/aistorystudio/D06ApkUpgradeInstrumentedTest.kt`: fixture giả có phase seed/verify/cleanup; không dùng Room hoặc dữ liệu người dùng.
+- Cập nhật `AGENTS.md`, `README.md`, `docs/RELEASE_SIGNING.md`, architecture, decisions, roadmap và test plan về ký, bảo quản/backup keystore, version, test harness và giới hạn.
+- Tắt R8/shrinking cho release hiện tại. Cấu hình tối ưu trước đó làm APK thật crash runtime; không phát hành APK chỉ vì Gradle báo build thành công.
+
+### Build và kiểm thử có bằng chứng
+
+| Lệnh/kịch bản | Kết quả quan sát |
+|---|---|
+| `.\gradlew.bat assembleDebug testDebugUnitTest lintDebug --console=plain` | PASS — `BUILD SUCCESSFUL`, 53 actionable tasks; build cuối có 1 executed/52 up-to-date. Unit tests đã được chạy thực tế trong pipeline test-all dưới đây. |
+| `.\scripts\test-all.ps1 -DeviceSerial emulator-5554` | PASS — build/debug/unit/lint thành công; 27 unit tests, 0 failure/error/skip; lint 0 error, 15 warning. Direct AndroidJUnitRunner đạt 19/19 instrumentation tests; process restart regression seed/verify/cleanup mỗi pha 1/1. Dùng `adb install -r`, không dùng Gradle connected runner. Log: `app/build/reports/a06/20261019-020225-916-all-build-unit-lint.log`, `20261019-020355-575-instrumentation-direct-build.log`, `20261019-020355-575-instrumentation-direct-runner.log`, `20261019-020355-575-process-restart-seed.log`, `...-verify.log`, `...-cleanup.log`. |
+| `.\scripts\test-release-upgrade.ps1 -DeviceSerial emulator-5556` | PASS ở lượt cuối — release V1 build thành công (102 task), instrumentation APK build thành công; seed 1/1; release V2 build thành công (49 task); verify 1/1 và cleanup 1/1. APK snapshot: `app/build/reports/a06/20261019-015807-711-release-upgrade/release-v1.apk`, `release-v2.apk`, cùng test APK của harness. |
+| `aapt dump badging` + `apksigner verify --print-certs` trên V1/V2 | PASS — cả hai APK `com.hoangtu.aistorystudio`; versionCode 1→2; `apksigner` exit 0; fingerprint SHA-256 của cả hai bằng `07BA2937C7110829CED4167C8BAF4118A48CC3CEB23BD144AC5F79A1708C8ABF`. |
+| Cài và giữ fixture app-private V1→V2 | PASS — log `20261019-015806-650-d06-release-v1-install.log` và `...-d06-release-v2-install.log` đều có `Success`; test seed/verify/cleanup trả `OK (1 test)` từng pha. Test APK instrumentation cũng cài được và được ký với chứng chỉ tạm cùng release APK. |
+| Khởi chạy release V2 sau update | PASS trên AVD — `MainActivity` resumed; 0 fatal crash trong logcat mới. |
+| Release task khi thiếu signing variables | PASS fail-closed — `:app:assembleRelease --no-configuration-cache --console=plain` exit 1 và hiện thông báo `Release signing is required`; không có password được in. |
+| PowerShell AST + `git diff --check` | PASS — hai script D-06 parse không lỗi; diff không lỗi whitespace (Git chỉ cảnh báo line ending LF/CRLF). |
+| Bảo mật Git/artifact | PASS — không có file signing trong tracked/untracked non-ignored working tree; các đuôi keystore và release-signing properties được `.gitignore` bỏ qua. Pipeline quét giá trị password dùng một lần trong APK, log và file repository, không phát hiện. |
+
+### Lỗi trung gian và sửa nguyên nhân
+
+- Lượt đầu, `pm path` trả exit 1 khi app chưa cài trên AVD sạch; đổi preflight sang `cmd package list packages`, lệnh này thành công khi package vắng mặt và vẫn phát hiện đúng package đã cài.
+- `assembleReleaseAndroidTest` không tồn tại vì dự án chỉ có androidTest variant debug. Script dùng `assembleDebugAndroidTest`, ký lại test APK riêng bằng certificate của lượt test để instrumentation có thể chạy với release target; không đổi `testBuildType` toàn dự án.
+- Release APK có R8 optimization bật đã crash trên AVD với `IllegalAccessError` trong `kotlin.sequences`; khi chạy instrumentation còn thiếu Kotlin runtime trong target classloader. Bổ sung `android.r8.gradual.support` không sửa được. Tắt optimization cho release đã làm V1/V2 mở và chạy instrumentation được. Không bật lại cho đến khi có kiểm thử R8/runtime riêng.
+- Có các lượt test trung gian không đạt trước các sửa đổi trên; chúng không được tính PASS. Lượt chạy cuối được liệt kê trong bảng là bằng chứng nghiệm thu hiện tại.
+
+### Giới hạn và trạng thái nghiệm thu
+
+- Khóa test dùng một lần không phải khóa phát hành. Người dùng vẫn cần tự tạo keystore production ngoài repository, lưu mật khẩu trong password manager và xác minh bản backup thứ hai theo `docs/RELEASE_SIGNING.md`. Không có backup production để nghiệm thu; không gửi mật khẩu vào chat.
+- Sáu keystore PKCS12 kiểm thử được tạo một lần dưới `C:\jtmp`, ngoài repository; password ngẫu nhiên chỉ tồn tại tạm trong process, không được lưu/in. Chúng không phải khóa production. Lệnh dọn các tệp kiểm thử bị tool safety policy chặn nên tệp mã hóa còn tại đó; có thể xóa thủ công sau khi xác nhận đúng tên test-only.
+- Physical-device smoke test BLOCKED vì ADB chỉ thấy emulator. A-01 tiếp tục đạt một phần; D-06 không thay thế điều kiện đó.
+- D-06 hạ tầng ký/update đã được kiểm chứng trên AVD, nhưng trạng thái tổng thể là **đạt một phần** cho đến khi có khóa production và bản sao lưu thật. Không làm D-07, C-01 hoặc task khác.

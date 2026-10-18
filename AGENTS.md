@@ -27,6 +27,8 @@
 - Ưu tiên `scripts/test-unit.ps1` cho unit test và `scripts/test-all.ps1 -DeviceSerial <emulator-serial>` cho hồi quy đầy đủ. Các script xác minh JDK/SDK/ADB và từ chối kết quả không có test, test lỗi hoặc test bị bỏ qua.
 - Instrumentation mặc định phải chạy qua `scripts/test-instrumentation.ps1` trên emulator được chọn tường minh; script cài APK bằng `adb -s ... install -r` và giữ app data. Không dùng `connectedDebugAndroidTest` như runner mặc định vì AGP có thể gỡ app và test APK sau khi chạy.
 - Chỉ chọn `-UseGradleRunner` trên AVD có thể cài lại và không cần giữ app data; kiểm tra log/report cùng số lượng test, không dựa riêng vào `BUILD SUCCESSFUL`. Dùng `scripts/test-harness.ps1` để xác nhận guard số test trước khi sửa runner.
+- Build release qua `scripts/build-release.ps1` hoặc các biến môi trường trong process hiện tại; không đặt mật khẩu trong tham số lệnh, source, `gradle.properties` hay log. Release task phải chạy với `--no-configuration-cache`.
+- Kiểm thử cài đè release chỉ dùng emulator thử nghiệm sạch qua `scripts/test-release-upgrade.ps1`; nếu thiếu biến ký, script hỏi mật khẩu qua prompt ẩn. Script từ chối nếu ứng dụng đã cài và không gọi uninstall/clear data.
 
 ## Quy trình Git sau nhiệm vụ
 
