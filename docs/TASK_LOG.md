@@ -160,7 +160,7 @@ Trong quá trình sửa, build ban đầu bắt lỗi dùng method reference t�
 
 ### Bảo mật và artifact
 
-- Rà soát 85 đường dẫn được theo dõi cùng nội dung hiện tại và patch lịch sử local chưa có trên remote. Không phát hiện đường dẫn thuộc nhóm local.properties, .env, khóa ký, APK/AAB, database người dùng, build hoặc cache; không phát hiện chuỗi khớp mẫu API/token/private-key. Giá trị nhạy cảm không được in ra terminal.
+- Rà soát 86 đường dẫn được theo dõi cùng nội dung hiện tại và patch lịch sử local chưa có trên remote. Không phát hiện đường dẫn thuộc nhóm local.properties, .env, khóa ký, APK/AAB, database người dùng, build hoặc cache; không phát hiện chuỗi khớp mẫu API/token/private-key. Giá trị nhạy cảm không được in ra terminal.
 - Xác nhận Room schema cần quản lý phiên bản vẫn được theo dõi tại `app/schemas/com.hoangtu.aistorystudio.core.database.StudioDatabase/1.json`.
 - Chưa chạy instrumentation test trong lượt đồng bộ này; bằng chứng A-03 gần nhất vẫn là 14 test trên emulator API 37 như mục A-03 ở trên. A-01 vẫn thiếu smoke test trên điện thoại thật và không được đánh dấu hoàn thành.
 
@@ -170,4 +170,5 @@ Trong quá trình sửa, build ban đầu bắt lỗi dùng method reference t�
 - `gradlew.bat assembleDebug testDebugUnitTest lintDebug --console=plain`: BUILD SUCCESSFUL, 53 actionable tasks (8 executed, 45 up-to-date). `lintDebug` hoàn tất với 0 lỗi, 11 warning. Unit test ban đầu là up-to-date nên chạy thêm lệnh bên dưới để có lần thực thi mới.
 - `gradlew.bat testDebugUnitTest --rerun-tasks --console=plain`: BUILD SUCCESSFUL, 26 tasks executed; XML `app/build/test-results/testDebugUnitTest/TEST-com.hoangtu.aistorystudio.ExampleUnitTest.xml` ghi nhận 1 test, 0 failure, 0 error, 0 skipped (test mẫu phép cộng).
 - Tạo `docs/GIT_WORKFLOW.md` và cập nhật `AGENTS.md` để quy định thứ tự hoàn thành → kiểm thử → TASK_LOG → commit → rà soát bảo mật → push có yêu cầu → xác minh remote. Chưa coi commit local là bằng chứng push thành công.
-- Trạng thái GitHub và SHA remote sau push được báo cáo sau khi hoàn tất xác minh; không ghi PASS đồng bộ trước khi kiểm tra ref remote thực tế.
+- `git push -u origin HEAD:main` hoàn tất thành công; GitHub nhận merge commit `e5aefa64c98b94128e3dbfe22789584aa5b5a449` trên `main`.
+- Sau push, `git fetch origin` và `git ls-remote origin refs/heads/main` xác nhận remote SHA bằng local HEAD. Kiểm tra `origin/main` xác nhận A-01 (`31b206e`, `a286729`), A-02 (`f2b4733`) và A-03 (`ac5f623`) vẫn là ancestor; Android Manifest/MainActivity, Room schema V1, README, AGENTS.md và các tài liệu kiến trúc/test/task log đều có trong remote tree.
