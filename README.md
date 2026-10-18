@@ -71,3 +71,5 @@ Nếu Gradle vẫn không dùng JBR 25, đặt JAVA_HOME và cập nhật PATH n
 Không commit local.properties, API key, key.properties, secrets.properties, .env, tệp .jks/.keystore hoặc signing secrets. Không đưa khóa API vào mã nguồn hay log. Bản debug dùng debug keystore do Android tạo trên máy; cấu hình ký release thuộc D-06.
 
 Quy tắc làm việc theo backlog nằm trong AGENTS.md; bằng chứng build và test được ghi trong docs/TASK_LOG.md.
+
+Tên repository khởi tạo trên GitHub: AI_Story_Studio.

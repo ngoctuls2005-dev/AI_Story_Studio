@@ -22,6 +22,20 @@
 - Cập nhật docs/TASK_LOG.md với mã nhiệm vụ, file tạo/sửa, lệnh, kết quả, đường dẫn báo cáo/artifact và điều kiện nghiệm thu còn thiếu.
 - Tạo checkpoint Git cục bộ sau khi hoàn tất phần việc. Không push, merge, phát hành hoặc gửi dữ liệu ra ngoài nếu chưa được yêu cầu.
 
+## Quy trình Git sau nhiệm vụ
+
+Khi người dùng yêu cầu đồng bộ GitHub, thực hiện tuần tự và ghi bằng chứng theo `docs/GIT_WORKFLOW.md`:
+
+1. Hoàn thành đúng phạm vi nhiệm vụ được giao.
+2. Chạy build và các kiểm thử phù hợp; ghi rõ lệnh và kết quả thực tế.
+3. Cập nhật `docs/TASK_LOG.md`, gồm file thay đổi, kết quả và điều kiện còn thiếu.
+4. Tạo commit Git cục bộ sau khi kiểm tra diff.
+5. Kiểm tra file được theo dõi và lịch sử chưa đồng bộ để phát hiện khóa, dữ liệu riêng tư, artifact build hoặc cache.
+6. Chỉ push khi người dùng đã yêu cầu đồng bộ; không force push.
+7. Sau push, fetch/đọc ref remote và xác minh commit, nhánh, lịch sử và artifact cần thiết đã có trên GitHub.
+
+Không xem việc tạo commit cục bộ là bằng chứng đã đồng bộ remote. Nếu xác thực bị yêu cầu hoặc remote có commit mới, dừng để người dùng xác thực hoặc kiểm tra lại lịch sử mà không viết lại lịch sử.
+
 ## Kiến trúc và dữ liệu
 
 - Dùng docs/ARCHITECTURE.md và docs/DECISIONS.md làm thiết kế mục tiêu; chúng không có nghĩa là các phần đó đã được triển khai.

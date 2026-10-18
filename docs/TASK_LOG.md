@@ -149,3 +149,25 @@ Trong quá trình sửa, build ban đầu bắt lỗi dùng method reference t�
 - A-01 vẫn chưa đạt đầy đủ do điện thoại Xiaomi từ chối cài APK. Đây không làm thay đổi trạng thái nghiệm thu A-03; không đánh dấu A-01 hoàn thành.
 - Rủi ro còn lại: chưa có migration V1→V2 thật vì chưa có schema mới; task D-01 sau A-03 cần tạo fixture V1, migration thật và so sánh toàn bộ dữ liệu. Dữ liệu cục bộ vẫn có thể mất khi gỡ app/xóa app data/hỏng thiết bị; backup/restore thuộc các task D và chưa triển khai. Không có cơ chế migration phá hủy hoặc lệnh reset DB trong app.
 - Đề xuất tiếp theo: hoàn tất smoke test A-01 trên điện thoại thật sau khi người dùng cho phép cài APK qua USB; sau đó A-04 theo trình tự backlog. Không thực hiện task kế tiếp trong lượt A-03 này.
+
+## Đồng bộ GitHub sau A-03 — 18/10/2026
+
+### Kiểm tra lịch sử và hợp nhất
+
+- Working tree sạch trước thao tác; nhánh local `main` ở `ac5f623` (A-03), với các checkpoint A-01 `31b206e`, `a286729` và A-02 `f2b4733`.
+- Thêm `origin` với URL đích do người dùng cung cấp và `git fetch origin` thành công. `origin/main` trỏ tới `e1fa742` (Initial commit), chỉ gồm README và `.gitignore`; không có merge-base với lịch sử local (`git rev-list --left-right --count main...origin/main` trả `4 1`).
+- Hợp nhất bằng `git merge origin/main --allow-unrelated-histories`. README và `.gitignore` có xung đột add/add; giải quyết bằng cách giữ README Android hiện tại và ghi nhận tên repository khởi tạo, đồng thời ghép toàn bộ quy tắc ignore GitHub với quy tắc Android. Không xóa file nguồn hoặc viết lại lịch sử.
+
+### Bảo mật và artifact
+
+- Rà soát 85 đường dẫn được theo dõi cùng nội dung hiện tại và patch lịch sử local chưa có trên remote. Không phát hiện đường dẫn thuộc nhóm local.properties, .env, khóa ký, APK/AAB, database người dùng, build hoặc cache; không phát hiện chuỗi khớp mẫu API/token/private-key. Giá trị nhạy cảm không được in ra terminal.
+- Xác nhận Room schema cần quản lý phiên bản vẫn được theo dõi tại `app/schemas/com.hoangtu.aistorystudio.core.database.StudioDatabase/1.json`.
+- Chưa chạy instrumentation test trong lượt đồng bộ này; bằng chứng A-03 gần nhất vẫn là 14 test trên emulator API 37 như mục A-03 ở trên. A-01 vẫn thiếu smoke test trên điện thoại thật và không được đánh dấu hoàn thành.
+
+### Build, test và quy trình đồng bộ
+
+- Toolchain chạy với Android Studio JBR 25; Android Gradle Plugin/Gradle/Kotlin/SDK giữ nguyên. `adb devices -l` nhận điện thoại Xiaomi API 33; không cài APK trong lượt đồng bộ.
+- `gradlew.bat assembleDebug testDebugUnitTest lintDebug --console=plain`: BUILD SUCCESSFUL, 53 actionable tasks (8 executed, 45 up-to-date). `lintDebug` hoàn tất với 0 lỗi, 11 warning. Unit test ban đầu là up-to-date nên chạy thêm lệnh bên dưới để có lần thực thi mới.
+- `gradlew.bat testDebugUnitTest --rerun-tasks --console=plain`: BUILD SUCCESSFUL, 26 tasks executed; XML `app/build/test-results/testDebugUnitTest/TEST-com.hoangtu.aistorystudio.ExampleUnitTest.xml` ghi nhận 1 test, 0 failure, 0 error, 0 skipped (test mẫu phép cộng).
+- Tạo `docs/GIT_WORKFLOW.md` và cập nhật `AGENTS.md` để quy định thứ tự hoàn thành → kiểm thử → TASK_LOG → commit → rà soát bảo mật → push có yêu cầu → xác minh remote. Chưa coi commit local là bằng chứng push thành công.
+- Trạng thái GitHub và SHA remote sau push được báo cáo sau khi hoàn tất xác minh; không ghi PASS đồng bộ trước khi kiểm tra ref remote thực tế.
