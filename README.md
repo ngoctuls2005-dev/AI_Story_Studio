@@ -1,6 +1,6 @@
 # AI Story Studio
 
-Ứng dụng Android cá nhân phát triển bằng Kotlin và Jetpack Compose. A-02 đã tạo theme Material 3 sáng/tối, khung điều hướng và sáu màn hình Home, Roleplay, Novel, Characters, Library, Settings. Các màn tính năng hiện là khung giao diện; chưa có chat thực tế, editor, Room hay kết nối AI.
+Ứng dụng Android cá nhân phát triển bằng Kotlin, Jetpack Compose và Material 3. A-02 tạo theme sáng/tối, khung điều hướng và sáu màn hình Home, Roleplay, Novel, Characters, Library, Settings. A-03 bổ sung Room schema V1 cho hồ sơ, hội thoại và dữ liệu Novel; các màn tính năng vẫn là khung, chưa có chat/editor thực tế, DataStore hay kết nối AI.
 
 ## Tài liệu dự án
 
@@ -26,9 +26,9 @@
 | minSdk / targetSdk | 26 / 37 |
 | applicationId | com.hoangtu.aistorystudio |
 
-Compose bật trong module app bằng buildFeatures.compose = true; Material 3 và Compose UI dùng Compose BOM. Java source/target đặt mức 11. Room chưa được thêm; phần đó thuộc A-03.
+Compose bật trong module app bằng buildFeatures.compose = true; Material 3 và Compose UI dùng Compose BOM. Java source/target đặt mức 11. Room runtime/compiler/testing 2.8.5 được xử lý bằng KSP 2.3.12; schema version 1 được theo dõi trong `app/schemas/`.
 
-AGP 9.4 yêu cầu Gradle 9.6, hỗ trợ API tối đa 37 và Build Tools 36.0.0. Các giá trị này khớp cấu hình hiện tại. Gradle daemon dùng JDK 25. JDK 27 mặc định trên PATH chưa được Gradle 9.6 công bố hỗ trợ làm JVM chạy Gradle; dùng JBR 25 đi kèm Android Studio. Build thực tế và test mẫu đã chạy trên cấu hình này.
+AGP 9.4 yêu cầu Gradle 9.6, hỗ trợ API tối đa 37 và Build Tools 36.0.0. Các giá trị này khớp cấu hình hiện tại. Gradle daemon dùng JDK 25. JDK 27 mặc định trên PATH chưa được Gradle 9.6 công bố hỗ trợ làm JVM chạy Gradle; dùng JBR 25 đi kèm Android Studio. Build, unit test, lint và instrumentation test A-03 đã chạy trên cấu hình này với emulator API 37.
 
 ## Mở project và build trên Windows
 

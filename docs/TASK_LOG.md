@@ -94,3 +94,58 @@ Lệnh ADB được gọi qua `C:\Users\HOANG NGOC TU\AppData\Local\Android\Sdk\
 - **A-01 vẫn chưa đạt đầy đủ:** chưa smoke APK trên điện thoại thật vì không có thiết bị vật lý online; bằng chứng emulator không thay thế điều kiện này.
 - Cảnh báo còn lại: 10 warning lint nêu trên; instrumentation hiển thị cảnh báo Java về `sun.misc.Unsafe` từ protobuf 3.25.5 nhưng không làm test thất bại. Không có lỗi build/test chưa giải quyết.
 - Đề xuất bước tiếp theo: hoàn tất smoke A-01 trên điện thoại thật để đóng cổng nền tảng; sau đó thực hiện A-03 (schema Room, repository, CRUD và migration an toàn). Không triển khai A-03 trong lượt này.
+
+## A-03 — 18/10/2026
+
+### Phạm vi và kiểm tra trước khi sửa
+
+- Đọc toàn bộ AGENTS.md và docs/BACKLOG_V1.md, ARCHITECTURE.md, DECISIONS.md, ROADMAP.md, TEST_PLAN.md, TASK_LOG.md. Backlog A-03 yêu cầu Room schema V1, FK/index và repository/transaction cho nhân vật, persona, chat, message, variants, novel, chapter, scene, revisions, memory, summary, timeline; tiêu chí là CRUD/FK, persistence sau đóng/mở, ID không trùng và rollback transaction.
+- Git sạch trên nhánh main tại checkpoint A-02 `f2b473385076ffd6416e2d3a6ab3a66fb048c227` trước khi làm. Giữ nguyên checkpoint này.
+- A-01 vẫn thiếu smoke trên điện thoại thật; không được đánh dấu hoàn thành. Trong lượt này ADB nhận Xiaomi 21061119AG / API 33, nhưng thiết bị từ chối cài APK với `INSTALL_FAILED_USER_RESTRICTED: Install canceled by user`. Kiểm thử A-03 được chuyển qua emulator API 37 bằng ADB server riêng để không thay đổi thiết lập hay dữ liệu trên điện thoại.
+- Toolchain hiện tại: AGP 9.4.1, Gradle 9.6.0, Kotlin Compose plugin 2.2.10, Gradle daemon/Android Studio JBR 25, Android SDK 37 và Build Tools 36.0.0. Dùng Room 2.8.5 + KSP 2.3.12; không nâng AGP/Gradle/Kotlin/SDK.
+- Chia A-03 thành: (1) kiểm tra tương thích Room/KSP và export schema; (2) Entity V1, FK/index và quy tắc xóa; (3) DAO/repository với Coroutines/Flow/transaction; (4) test CRUD, scope, persistence, FK, rollback và MigrationTestHelper; (5) cập nhật tài liệu, chạy lại kiểm thử và checkpoint.
+
+### Thiết kế và thay đổi
+
+- Tạo `StudioDatabase` version 1, tên file cục bộ `ai_story_studio.db`, `exportSchema=true`, singleton builder có registry migration rỗng và không dùng `fallbackToDestructiveMigration`/`clearAllTables`.
+- Tạo 14 Entity có UUID String làm khóa chính: `CharacterProfile`, `UserPersona`, `Conversation`, `ChatMessage`, `MessageVariant`, `ConversationSummary`, `NovelProject`, `NovelChapter`, `NovelScene`, `SceneRevision`, `NovelCharacterCrossRef`, `MemoryFact`, `NovelSummary`, `TimelineEvent`.
+- FK dùng RESTRICT khi xóa character/persona còn được conversation tham chiếu; CASCADE cho dữ liệu con thuộc conversation/chapter/project; liên kết novel-character bị xóa theo một trong hai owner. Index hỗ trợ tìm kiếm, owner scope và thứ tự; message sequence, variant order, revision number, liên kết cặp project-character và timeline order được ràng buộc duy nhất ở các trường phù hợp.
+- Memory fact có 3 FK owner nullable; repository bắt buộc đúng một owner khớp `ownerType`, kiểm tra FK bởi SQLite và chặn thay đổi owner của bản ghi đã tạo. Xóa memory đặt tombstone `deleted_at`, không xóa vật lý; query thông thường loại fact đã xóa. Query luôn giới hạn theo khóa owner tương ứng. Không lưu API key trong schema.
+- Tạo bốn DAO: `CharacterDao`, `ConversationDao`, `NovelDao`, `MemoryFactDao`; các ghi/đọc một lần là `suspend`, các luồng quan sát trả `Flow`. Tạo bốn repository tương ứng. `withTransaction` cấp sequence/order và bảo vệ thao tác nhiều bước; message/summary/memory không được đổi owner khi cập nhật qua repository.
+- Room plugin xuất schema có thể theo dõi tại `app/schemas/com.hoangtu.aistorystudio.core.database.StudioDatabase/1.json`; Room schema folder được plugin đưa vào assets của androidTest. Chưa có schema V2/migration thật nên DB version vẫn 1; `StudioDatabaseMigrations.ALL` chỉ đăng ký các migration thật hiện có và đang rỗng. Không tạo migration 1→2 giả. MigrationTestHelper tạo và validate schema V1; cách làm V1→V2 có fixture bảo toàn dữ liệu được ghi trong TEST_PLAN.
+- Tương thích runtime test phát hiện Room MigrationTestHelper 2.8.5 dùng serialization core 1.8.1, trong khi Navigation/Lifecycle giải quyết xuống 1.7.3; lần chạy đầu lỗi `AbstractMethodError`. Dependency insight xác nhận xung đột. Thêm dependency core 1.8.1 để căn phiên bản toàn bộ variant; chạy lại MigrationTestHelper thành công. Đây là thay đổi hẹp cần cho test schema, không đổi Compose/Navigation/toolchain.
+- Không sửa Navigation, Composable, DataStore, AI provider, streaming, Memory Engine, backup hoặc signing. Không thao tác DB chính của ứng dụng; bài reopen tạo DB test có tên UUID rồi đóng/mở và chỉ xóa chính file test đó.
+
+### File tạo hoặc chỉnh sửa
+
+- Sửa `app/build.gradle.kts`, `gradle/libs.versions.toml`.
+- Tạo `app/schemas/com.hoangtu.aistorystudio.core.database.StudioDatabase/1.json`.
+- Tạo DB/migration: `app/src/main/java/com/hoangtu/aistorystudio/core/database/StudioDatabase.kt`, `StudioDatabaseMigrations.kt`.
+- Tạo 14 Entity trong `core/database/entity/`: `CharacterProfileEntity.kt`, `UserPersonaEntity.kt`, `ConversationEntity.kt`, `ChatMessageEntity.kt`, `MessageVariantEntity.kt`, `ConversationSummaryEntity.kt`, `NovelProjectEntity.kt`, `NovelChapterEntity.kt`, `NovelSceneEntity.kt`, `SceneRevisionEntity.kt`, `NovelCharacterCrossRefEntity.kt`, `MemoryFactEntity.kt`, `NovelSummaryEntity.kt`, `TimelineEventEntity.kt`.
+- Tạo DAO trong `core/database/dao/`: `CharacterDao.kt`, `ConversationDao.kt`, `NovelDao.kt`, `MemoryFactDao.kt`.
+- Tạo repository trong `core/database/repository/`: `CharacterRepository.kt`, `ConversationRepository.kt`, `NovelRepository.kt`, `MemoryFactRepository.kt`.
+- Tạo instrumentation tests: `app/src/androidTest/java/com/hoangtu/aistorystudio/core/database/A03RoomInstrumentedTest.kt`, `A03MigrationInstrumentedTest.kt`.
+- Cập nhật `README.md`, `docs/ARCHITECTURE.md`, `docs/DECISIONS.md`, `docs/ROADMAP.md`, `docs/TEST_PLAN.md`, `docs/TASK_LOG.md`.
+
+### Lệnh và kết quả
+
+Gradle chạy bằng Wrapper với `JAVA_HOME=C:\Program Files\Android\Android Studio\jbr` (JBR 25), `TEMP/TMP=C:\jtmp`. ADB ở `C:\Users\HOANG NGOC TU\AppData\Local\Android\Sdk\platform-tools\adb.exe`.
+
+| Lệnh/kịch bản | Kết quả |
+|---|---|
+| `gradlew.bat help --console=plain` sau khi thêm Room/KSP/plugin | PASS — Gradle cấu hình và resolve plugin Room/KSP thành công. |
+| `gradlew.bat :app:kspDebugKotlin --console=plain` | PASS — KSP sinh DAO và `copyRoomSchemas` sinh schema V1. |
+| `gradlew.bat assembleDebug testDebugUnitTest lintDebug --console=plain` | PASS — `BUILD SUCCESSFUL`; 1 unit test mẫu, 0 failure/error. Báo cáo unit: `app/build/test-results/testDebugUnitTest/TEST-com.hoangtu.aistorystudio.ExampleUnitTest.xml`. APK: `app/build/outputs/apk/debug/app-debug.apk`, SHA-256 `26BF0A75BEB45766BD1C885842AC239BF0C71437ECBAB49C87408EA4CE451C60`. |
+| `gradlew.bat connectedDebugAndroidTest --console=plain` với ADB mặc định (Xiaomi API 33 và emulator cùng online) | BLOCKED trên Xiaomi: Android từ chối cài instrumentation APK (`INSTALL_FAILED_USER_RESTRICTED`). Không kết luận đây là lỗi test Room và không thay đổi tùy chọn bảo mật điện thoại. |
+| `gradlew.bat connectedDebugAndroidTest --console=plain` với `ANDROID_ADB_SERVER_PORT=5038` | PASS — ADB server cô lập chỉ thấy `Medium_Phone_API_37.0(AVD) - 17`; 14 test, 0 failure/error/skip. XML: `app/build/outputs/androidTest-results/connected/debug/TEST-Medium_Phone_API_37.0(AVD) - 17.xml`. Bao gồm 6 test A-03 (CRUD, Unicode, persistence, scope/thứ tự, memory, FK/delete/rollback) và 2 test migration/schema; 6 test A-02 hiện hữu cũng chạy lại. |
+| `gradlew.bat lintDebug` (trong lệnh build/test kết hợp) | PASS — 0 lỗi, 11 warning. HTML/text: `app/build/reports/lint-results-debug.html`, `app/build/reports/lint-results-debug.txt`. Warning là redundant manifest label, gợi ý phiên bản mới hơn và resource scaffold chưa dùng; không có lỗi lint mới ở database. |
+| `adb devices -l` | Có Xiaomi `21061119AG` API 33 và emulator API 37. ADB server riêng port 5038 chỉ chạy emulator để Gradle test không thử cài lên điện thoại. |
+
+Trong quá trình sửa, build ban đầu bắt lỗi dùng method reference tới hàm `suspend` trong `also`; chuyển sang lời gọi suspend tường minh trong transaction. MigrationTestHelper ban đầu lỗi binary incompatibility nêu trên; căn serialization core 1.8.1 và chạy lại toàn suite đã pass. Gradle log có cảnh báo protobuf gọi `sun.misc.Unsafe` bị deprecated và thư viện native `libandroidx.graphics.path.so` được đóng gói nguyên vì không strip được; không làm test thất bại.
+
+### Kết luận nghiệm thu A-03 và giới hạn dữ liệu
+
+- **A-03 đạt theo tiêu chí backlog trên emulator API 37:** create/read/update/delete, Unicode, persistence sau đóng/mở, scope hai hội thoại/hai project, uniqueness/FK, thứ tự ổn định, CASCADE/RESTRICT và rollback đều có assertion instrumentation chạy thành công; database hiện tại mở theo schema V1 và MigrationTestHelper xác nhận schema được export có thể tạo/validate.
+- A-01 vẫn chưa đạt đầy đủ do điện thoại Xiaomi từ chối cài APK. Đây không làm thay đổi trạng thái nghiệm thu A-03; không đánh dấu A-01 hoàn thành.
+- Rủi ro còn lại: chưa có migration V1→V2 thật vì chưa có schema mới; task D-01 sau A-03 cần tạo fixture V1, migration thật và so sánh toàn bộ dữ liệu. Dữ liệu cục bộ vẫn có thể mất khi gỡ app/xóa app data/hỏng thiết bị; backup/restore thuộc các task D và chưa triển khai. Không có cơ chế migration phá hủy hoặc lệnh reset DB trong app.
+- Đề xuất tiếp theo: hoàn tất smoke test A-01 trên điện thoại thật sau khi người dùng cho phép cài APK qua USB; sau đó A-04 theo trình tự backlog. Không thực hiện task kế tiếp trong lượt A-03 này.

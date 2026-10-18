@@ -2,7 +2,7 @@
 
 ## Phạm vi và quy tắc báo cáo
 
-Kế hoạch bao phủ nền tảng A-01 và các luồng V1.0 được nêu trong docs/BACKLOG_V1.md. Kiểm thử chức năng sẽ được thêm cùng task triển khai. Hiện ứng dụng còn là Compose scaffold; test mẫu hiện tại không chứng minh chat, Room, memory, backup hay autosave hoạt động.
+Kế hoạch bao phủ nền tảng A-01 và các luồng V1.0 được nêu trong docs/BACKLOG_V1.md. A-03 hiện có instrumentation test thực cho thao tác Room, scope, persistence và schema V1; các luồng chat, memory retrieval/Context Builder, backup và autosave vẫn chưa được triển khai.
 
 - **PASS:** lệnh/kịch bản chạy xong và có kết quả quan sát được.
 - **FAIL:** đã chạy nhưng có assertion, build hoặc hành vi không đạt.
@@ -55,6 +55,24 @@ Lệnh Windows PowerShell:
     adb install -r .\app\build\outputs\apk\debug\app-debug.apk
     adb shell monkey -p com.hoangtu.aistorystudio -c android.intent.category.LAUNCHER 1
 
+## Kiểm thử A-03 — Room V1
+
+Instrumentation tests nằm tại `app/src/androidTest/java/com/hoangtu/aistorystudio/core/database/` và chạy bằng AndroidJUnitRunner. Dữ liệu test dùng in-memory DB hoặc tên DB riêng có UUID; test persistence chỉ xóa chính DB tạm do test tạo.
+
+| Kịch bản | Bằng chứng cần có |
+|---|---|
+| Profile/persona insert, read, update, delete | DAO/repository trả đúng bản ghi và trạng thái sau xóa. |
+| Unicode | Tên/nội dung tiếng Việt có dấu được lưu và đọc nguyên vẹn. |
+| Đóng/mở database | Bản ghi còn nguyên sau khi đóng instance và mở lại cùng tên DB test. |
+| Cô lập hội thoại và project | Hai hội thoại không lẫn message; hai project không lẫn chapter, summary, timeline hoặc liên kết nhân vật. |
+| Thứ tự xác định | Message theo sequence; chapter/scene theo thứ tự riêng của owner rồi ID; kết quả được assertion. |
+| Khóa ngoại/chính sách xóa | Owner không tồn tại bị từ chối; character đang được conversation tham chiếu bị RESTRICT; xóa conversation cascade message. |
+| Transaction rollback | Xung đột ID khi thêm message đầu làm rollback conversation mới; message gốc không đổi. |
+| Memory scope/tombstone | Chỉ nhận đúng một owner hợp lệ; không chuyển memory đã có sang owner khác; truy vấn khác scope rỗng; xóa đặt `deleted_at` và giữ tombstone thay vì xóa vật lý. |
+| Database schema | Room mở được DB V1; MigrationTestHelper tạo và validate schema export V1. |
+
+Schema V1 được xuất vào `app/schemas/com.hoangtu.aistorystudio.core.database.StudioDatabase/1.json`. Chưa có migration thật nên version vẫn là 1. Khi schema chuyển V1→V2: giữ file JSON version 1, thay đổi schema/entity và tăng version lên 2 trong cùng thay đổi, thêm `Migration(1, 2)` có tên vào registry, tạo DB V1 với dữ liệu đại diện qua MigrationTestHelper, chạy `runMigrationsAndValidate(..., 2, true, MIGRATION_1_2)` rồi xác nhận giá trị, quan hệ, index và FK của các hàng cũ. Không dùng destructive fallback hoặc xóa DB hiện hành để làm test đạt.
+
 ## Ma trận V1.0 sau khi có tính năng
 
 | Tầng | Kịch bản chính | Tiêu chí |
@@ -72,7 +90,7 @@ Lệnh Windows PowerShell:
 ## Test dữ liệu và migration
 
 - Dùng fixture riêng, định danh ổn định, không dựa vào DB thật của người dùng.
-- Mỗi schema Room cần schema export vào repository, migration có tên và MigrationTestHelper xác nhận bản ghi/nội dung trước-sau.
+- Mỗi schema Room cần schema export vào repository, migration có tên và MigrationTestHelper xác nhận bản ghi/nội dung trước-sau khi xuất hiện migration thật. A-03 đã xác nhận tạo/validate schema V1; chưa giả lập đường nâng version.
 - Cấm destructive migration fallback. Không xóa DB thật để làm test pass.
 - Kiểm thử trộn scope với tối thiểu hai nhân vật, hai cuộc hội thoại, hai novel; kết quả truy vấn phải giữ đúng owner và project.
 

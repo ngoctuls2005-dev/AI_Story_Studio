@@ -1,6 +1,6 @@
 # Kiến trúc AI Story Studio
 
-**Trạng thái:** thiết kế mục tiêu cho V1.0; chưa phải mô tả các tính năng đã triển khai.
+**Trạng thái:** ghi nhận hiện trạng đã kiểm chứng và thiết kế mục tiêu cho V1.0.
 **Phạm vi:** Roleplay và Novel chạy độc lập, dùng chung hồ sơ nhân vật khi cần; ứng dụng cá nhân, ưu tiên offline và không cần backend riêng.
 
 ## Hiện trạng dự án
@@ -8,8 +8,9 @@
 - Dự án hiện có một Gradle module Android tên :app, Kotlin và Jetpack Compose với Material 3.
 - A-02 đã thêm Compose Navigation, theme Material 3 sáng/tối, thanh điều hướng thích ứng và sáu màn hình khung. Các màn Roleplay, Novel, Characters, Library và Settings hiện chỉ hiển thị trạng thái rỗng/thông tin; chưa có nghiệp vụ sản phẩm.
 - Navigation nằm trong `core.navigation`; thành phần giao diện dùng chung ở `core.ui`; từng màn hình thuộc package `feature.*`. UI hiện chưa có ViewModel theo feature.
-- Room, DataStore, OkHttp/SSE, kho bí mật và tính năng chat/soạn thảo thực tế chưa được triển khai.
-- A-01 đã xác nhận build được trên cấu hình hiện tại. Smoke test trên điện thoại thật vẫn còn thiếu vì ADB chỉ có emulator API 37; xem docs/TASK_LOG.md.
+- A-03 đã thêm Room 2.8.5, schema V1, 14 Entity, bốn DAO và repository theo nhóm dữ liệu. Room lưu hồ sơ/persona, hội thoại/messages/variants/summary, dự án/chương/cảnh/revisions/liên kết nhân vật, memory facts, novel summaries và timeline. Schema được quản lý tại `app/schemas/com.hoangtu.aistorystudio.core.database.StudioDatabase/1.json`.
+- DataStore, OkHttp/SSE, kho bí mật và nghiệp vụ chat/soạn thảo vẫn chưa được triển khai. Repository A-03 hiện trả Entity; việc bổ sung domain models và Use Case thuộc task sau.
+- A-01 vẫn chưa đạt đầy đủ. Điện thoại Xiaomi API 33 đã được ADB nhận diện trong lúc làm A-03 nhưng từ chối cài APK với `INSTALL_FAILED_USER_RESTRICTED`; smoke test điện thoại thật chưa được xác nhận. Xem docs/TASK_LOG.md.
 
 ## Nguyên tắc
 
@@ -64,7 +65,9 @@ Không tạo sẵn package rỗng chỉ để khớp sơ đồ. Tạo từng ph�
 - **ViewModel:** chuyển intent thành lời gọi Use Case; công bố StateFlow. Hủy stream theo lifecycle hoặc thao tác Stop.
 - **Use Case:** điều phối quy tắc, transaction cần thiết, Context Builder và luồng AI. Không chứa chi tiết Compose, SQL hay HTTP.
 - **Repository:** domain khai báo interface; data cung cấp implementation. DAO chỉ được gọi qua repository/use case.
-- **Room:** lưu nhân vật, persona, chat, message, variants, dự án, chương, cảnh, revisions, memories, summaries và timeline theo schema backlog.
+- **Room hiện tại:** `StudioDatabase` version 1, export schema bật; các lệnh DAO one-shot dùng `suspend`, các truy vấn quan sát dùng `Flow`. FK/index và thứ tự dữ liệu được định nghĩa theo scope. Không cấu hình destructive fallback. Chưa có migration thật vì chưa tồn tại schema cũ.
+- **Repository hiện tại:** bốn nhóm repository bọc DAO; `withTransaction` bảo vệ tạo hội thoại/message đầu, thêm message theo sequence, cấp số thứ tự novel và cập nhật summary. Memory chỉ chấp nhận đúng một owner, và repository chặn việc đổi owner của memory/message/summary.
+- **Xóa dữ liệu:** hội thoại được tham chiếu bởi hồ sơ/persona dùng `RESTRICT`; con của hội thoại/chapter/project dùng `CASCADE`; liên kết Novel-character bị xóa cùng project hoặc character. Xóa project xóa toàn bộ nội dung con của project. Xóa nhân vật đang được hội thoại tham chiếu bị từ chối. Memory fact được đánh dấu tombstone bằng `deleted_at`; truy vấn thông thường bỏ qua fact đã xóa.
 - **DataStore:** giữ tùy chọn giao diện, endpoint/model đã chọn và metadata cấu hình. Nếu giữ token mã hóa ở đây, token rõ chỉ tồn tại trong bộ nhớ khi cần gửi request.
 - **AiProvider:** API có thể phát sự kiện nội dung, kết thúc, lỗi và hủy. OkHttp đọc SSE thành các sự kiện có kiểm soát; Fake provider tạo chunk, độ trễ và lỗi xác định.
 
@@ -79,7 +82,7 @@ Không tạo sẵn package rỗng chỉ để khớp sơ đồ. Tạo từng ph�
 
 - API key không đặt trong resource, BuildConfig, repository, log, test fixture chia sẻ hay APK.
 - Mỗi token được mã hóa bằng AES-GCM với khóa không xuất được do Android Keystore quản lý; chỉ lưu ciphertext và metadata cần thiết. Xóa token phải xóa ciphertext và alias/key liên quan theo quy trình an toàn.
-- Room migration giữ lại dữ liệu cũ. Export schema, migration test và backup/restore có kiểm tra thuộc các task D trong backlog.
+- Room migration phải giữ dữ liệu cũ. Schema V1 đã export và có kiểm thử `MigrationTestHelper` xác nhận tạo/validate schema V1; quy trình V1→V2 được mô tả trong TEST_PLAN. Chưa có đường migration V1→V2 để chạy vì chưa có schema V2.
 - Khi lưu bản nháp, revision mới hoặc stream đang chạy, transaction và trạng thái phải thể hiện dữ liệu nào hoàn chỉnh, dang dở hoặc lỗi.
 
 ## Build và kiểm chứng

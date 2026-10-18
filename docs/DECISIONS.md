@@ -1,6 +1,6 @@
 # Nhật ký quyết định kiến trúc
 
-Các quyết định dưới đây ghi lại hướng thiết kế dựa trên phạm vi người dùng và docs/BACKLOG_V1.md. Chúng chưa khẳng định tính năng tương ứng đã được triển khai. Nếu cần đổi hướng, cập nhật quyết định và bằng chứng trước khi sửa các task phụ thuộc.
+Các quyết định dưới đây ghi lại hướng thiết kế và trạng thái triển khai dựa trên docs/BACKLOG_V1.md. Nếu cần đổi hướng, cập nhật quyết định và bằng chứng trước khi sửa các task phụ thuộc.
 
 ## ADR-001 — Bắt đầu bằng một Gradle app module
 
@@ -17,10 +17,10 @@ Các quyết định dưới đây ghi lại hướng thiết kế dựa trên p
 
 ## ADR-003 — Room là nguồn chính cho nội dung
 
-- **Trạng thái:** chọn; chưa triển khai schema.
+- **Trạng thái:** đã triển khai nền tảng schema V1 trong A-03.
 - **Quyết định:** lưu hồ sơ, chat, messages, variants, novel, chapters, scenes, revisions, memories, summaries và timeline trong Room. DataStore dùng cho tùy chọn và metadata cấu hình.
 - **Lý do:** dữ liệu quan hệ, truy vấn theo scope và transaction cần migration có kiểm soát.
-- **Ràng buộc:** export schema, migration test; không xóa schema khi migration lỗi. D-01 thực hiện ngay sau A-03.
+- **Ràng buộc:** schema export tại `app/schemas/com.hoangtu.aistorystudio.core.database.StudioDatabase/1.json`; không fallback destructive, không xóa/reset DB khi lỗi. MigrationTestHelper kiểm tra schema V1. Migration V1→V2 thật chỉ được thêm khi có thay đổi schema thật và phải có test bảo toàn dữ liệu.
 
 ## ADR-004 — Provider AI qua abstraction và streaming
 
@@ -38,14 +38,14 @@ Các quyết định dưới đây ghi lại hướng thiết kế dựa trên p
 
 ## ADR-006 — Tách dữ liệu và ngữ cảnh Roleplay/Novel
 
-- **Trạng thái:** chọn cho thiết kế; schema cần cụ thể hóa ở A-03.
+- **Trạng thái:** schema scope đã triển khai ở A-03; Context Builder vẫn chưa triển khai.
 - **Quyết định:** chat, branch, memory và summary Roleplay có scope hội thoại/nhân vật; dự án, chương, cảnh, memory và summary Novel có scope project. Hồ sơ nhân vật có thể được chia sẻ bằng liên kết tường minh.
 - **Lý do:** ngăn lịch sử và ký ức của hai chế độ hoặc hai dự án bị trộn.
-- **Kiểm chứng:** A-03 và M-01..M-06 cần test scope âm tính, không chỉ xác nhận truy vấn có dữ liệu.
+- **Kiểm chứng:** A-03 có test hai hội thoại, hai project, summary và memory không lẫn scope. Repository xác thực memory có đúng một owner và chặn đổi owner; Context Builder và M-01..M-06 vẫn cần test riêng.
 
 ## ADR-007 — Không dùng destructive Room migration
 
-- **Trạng thái:** bắt buộc theo backlog.
+- **Trạng thái:** đã áp dụng trong `StudioDatabase`; không có destructive fallback hoặc lệnh xóa toàn bảng.
 - **Quyết định:** giữ schema export và migration tường minh có test; nếu đường nâng cấp không hỗ trợ thì dừng, báo lỗi có thể xử lý và giữ DB nguồn.
 - **Lý do:** ưu tiên không mất dữ liệu khi cập nhật APK.
 
@@ -69,3 +69,11 @@ Các quyết định dưới đây ghi lại hướng thiết kế dựa trên p
 - **Hiển thị thích ứng:** dùng NavigationBar ở màn hình hẹp và NavigationRail từ 600 dp; nội dung có chiều rộng tối đa 840 dp. Theme theo cài đặt sáng/tối hệ thống và dùng màu động trên Android 12 trở lên.
 - **Kiểm chứng:** instrumentation test sáu đích, Back, tạo lại Activity, nền/quay lại và hai bảng màu; smoke điện thoại thật vẫn thuộc phần còn thiếu của A-01.
 - **Giới hạn:** sáu màn hình A-02 hiện là khung giao diện; ViewModel, dữ liệu và hành vi sản phẩm sẽ được triển khai trong task tương ứng.
+
+## ADR-011 — Room/KSP và phiên bản schema đầu tiên
+
+- **Trạng thái:** đã áp dụng trong A-03.
+- **Quyết định:** Room runtime/compiler/testing 2.8.5; KSP 2.3.12; schema bắt đầu ở version 1 và xuất vào thư mục được Git quản lý. `room-ktx` không thêm riêng vì API Coroutines/Flow đã có trong Room runtime hiện tại.
+- **Lý do:** các phiên bản tương thích với AGP 9.4.1, Gradle 9.6.0 và Kotlin Compose plugin 2.2.10; KSP task sinh implementation DAO thành công.
+- **Tương thích MigrationTestHelper:** Room testing 2.8.5 cần kotlinx-serialization-core 1.8.1. Navigation/lifecycle hiện kéo 1.7.3; dependency runtime được căn về 1.8.1 để tránh `AbstractMethodError` khi đọc schema export.
+- **Giới hạn:** hiện chưa có migration nâng version. Không tăng DB version chỉ để tạo migration giả; thay đổi schema tiếp theo phải thêm migration có tên và test V1→V2 với dữ liệu fixture.

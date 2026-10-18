@@ -1,23 +1,25 @@
 # Lộ trình AI Story Studio V1.0
 
-**Nguồn thứ tự và tiêu chí:** docs/BACKLOG_V1.md. Mọi mã ngoài A-01 đang ở TODO; tài liệu này không đánh dấu những phần chưa làm là hoàn tất.
+**Nguồn thứ tự và tiêu chí:** docs/BACKLOG_V1.md. Trạng thái dưới đây chỉ được cập nhật khi có bằng chứng chạy được; việc còn thiếu được ghi riêng.
 
 ## Trạng thái hiện tại
 
 | Mục | Trạng thái | Bằng chứng hoặc việc còn thiếu |
 |---|---|---|
-| A-01 — nền tảng dự án | Đạt một phần | Wrapper build được; unit test và instrumentation mẫu đã chạy trên emulator API 37. Cần mở APK trên điện thoại thật để đạt đầy đủ tiêu chí backlog. |
-| Tài liệu kiến trúc | Tạo trong phạm vi yêu cầu A-01 | ARCHITECTURE.md, ROADMAP.md, TEST_PLAN.md, DECISIONS.md, AGENTS.md; tài liệu mô tả mục tiêu, không khẳng định đã triển khai tính năng. |
+| A-01 — nền tảng dự án | Đạt một phần | Build và test mẫu chạy trên emulator. Điện thoại Xiaomi API 33 được ADB nhận diện nhưng từ chối cài APK (`INSTALL_FAILED_USER_RESTRICTED`); smoke thật còn thiếu. |
+| Tài liệu kiến trúc | Đã tạo/cập nhật | ARCHITECTURE.md, ROADMAP.md, TEST_PLAN.md, DECISIONS.md, AGENTS.md; phân biệt rõ hiện trạng với mục tiêu. |
 | A-02 — giao diện và điều hướng | Hoàn thành trên emulator | Sáu màn hình điều hướng, Back, khôi phục Activity/nền-quay lại và theme sáng/tối đã được instrumentation test; smoke thủ công và viewport rộng chạy trên emulator API 37. Chưa kiểm thử trên điện thoại thật. |
-| A-03 trở đi | TODO | Chưa triển khai Room, DataStore, provider AI hoặc nghiệp vụ Roleplay/Novel. |
+| A-03 — Room và migration an toàn | Hoàn thành trên emulator API 37 | Schema V1, 14 Entity, bốn DAO, bốn repository, FK/scope/transaction; build, unit, lint và 14 instrumentation tests đã chạy. Chưa có migration V1→V2 vì chưa có schema V2. |
+| D-01 — MigrationTestHelper từ V1 sang V2 | Chờ schema V2 thật | A-03 đã export/validate V1 và ghi quy trình; không tạo version/migration giả. Cần fixture có dữ liệu khi một thay đổi schema thật tạo ra V2. |
+| A-04 trở đi | TODO | Chưa triển khai DataStore, provider AI, streaming hoặc nghiệp vụ Roleplay/Novel. |
 
 ## Trình tự đề xuất
 
-1. **Đóng A-01:** kết nối điện thoại Android thật, cài debug APK bằng `adb install -r`, mở MainActivity, ghi model/API level và kết quả trong docs/TASK_LOG.md.
-2. **A-03 — nền dữ liệu Room:** chốt schema V1, khóa ngoại/index, repositories và transaction; thêm CRUD, export schema và kiểm thử migration theo D-01 ngay sau đó.
-3. **A-04 — nhà cung cấp AI giả lập:** tạo AiProvider và stream giả lập offline để kiểm tra luồng giao diện, lỗi, hủy.
-4. **A-05 — cấu hình API an toàn:** endpoint/model có thể sửa; token mã hóa bằng Android Keystore; kiểm tra, dùng lại sau khởi động và xóa token.
-5. **A-06 — hoàn thiện quy trình test:** cấu hình test runner, Compose tests và MockWebServer còn thiếu; các tài liệu kiến trúc đã được tạo sớm theo yêu cầu riêng của A-01.
+1. **Đóng A-01:** xử lý quyền cài qua USB trên điện thoại Xiaomi API 33, cài debug APK, mở MainActivity và ghi smoke test. ADB đã nhận thiết bị nhưng Android từ chối cài APK.
+2. **A-04 — nhà cung cấp AI giả lập:** tạo AiProvider và stream giả lập offline để kiểm tra luồng giao diện, lỗi, hủy.
+3. **A-05 — cấu hình API an toàn:** endpoint/model có thể sửa; token mã hóa bằng Android Keystore; kiểm tra, dùng lại sau khởi động và xóa token.
+4. **A-06 — hoàn thiện quy trình test:** cấu hình test runner, Compose tests và MockWebServer còn thiếu; các tài liệu kiến trúc đã được tạo sớm theo yêu cầu riêng của A-01.
+5. **D-01 khi có thay đổi schema thật:** kiểm thử fixture dữ liệu V1 nâng lên V2 bằng MigrationTestHelper; không tạo migration giả chỉ để đóng task.
 6. **D-06 trước release đầu:** chốt khóa ký release bên ngoài repository và quy trình tăng versionCode.
 
 ## Các cổng sau nền tảng
