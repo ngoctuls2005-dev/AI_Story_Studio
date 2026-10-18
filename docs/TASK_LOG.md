@@ -220,3 +220,61 @@ Lệnh Gradle `connectedDebugAndroidTest` hoàn tất với exit code 0 nhưng c
 - A-04 đạt ở phạm vi abstraction/Fake/test harness. Điều kiện backlog về việc dùng thử trực tiếp Chat UI và Novel Editor hoàn toàn offline chưa thể kiểm chứng vì hai consumer chưa được triển khai; không tuyên bố hai màn đã chạy offline. Đây là giới hạn tích hợp được ghi nhận, không phải kiểm thử UI đạt.
 - `connectedDebugAndroidTest` qua Gradle hiện cho report rỗng trong cấu hình ADB tách server; instrumentation vẫn được xác nhận bằng runner trực tiếp trên AVD. Cảnh báo `sun.misc.Unsafe` từ protobuf vẫn xuất hiện nhưng không làm 14 test thất bại.
 - A-01 tiếp tục chưa hoàn thành vì chưa smoke test trên điện thoại thật. Không triển khai A-05, C-03, C-04 hoặc nhiệm vụ khác.
+
+## A-05 — 19/10/2026
+
+### Phạm vi và kiểm tra trước khi sửa
+
+- Đọc toàn bộ `AGENTS.md`, `docs/BACKLOG_V1.md`, `docs/ARCHITECTURE.md`, `docs/DECISIONS.md`, `docs/TEST_PLAN.md`, `docs/TASK_LOG.md` và `docs/GIT_WORKFLOW.md`. Tiêu chí backlog A-05: cấu hình API theo provider/model, khóa không rõ trong DB/log/repository, dùng lại sau khởi động, có kiểm tra và xóa key.
+- Git sạch trước khi làm trên `main`, HEAD là checkpoint A-04 `e1dac58`; `origin/main` vẫn ở `12fcb85`, local ahead 1 commit. Không sửa lịch sử A-01..A-04, không push.
+- A-01 vẫn chưa hoàn thành: chưa có smoke test điện thoại thật. Mọi cài đặt instrumentation A-05 chỉ nhắm AVD API 37 bằng ADB server riêng; không cài test lên Xiaomi.
+- Toolchain giữ nguyên: AGP 9.4.1, Gradle 9.6.0, Kotlin Compose plugin 2.2.10, SDK 37, Gradle daemon JDK 25 (Android Studio JBR). PATH mặc định Java 27 nên dùng JBR 25 và `TEMP/TMP=C:\jtmp`.
+- DataStore chưa có; thêm AndroidX Preferences DataStore 1.2.1 theo tài liệu Android hiện hành và `lifecycle-viewmodel-ktx` cùng dòng version lifecycle 2.11.0 đang dùng. Không đổi AGP/Gradle/Kotlin/SDK, Room schema, Room dependency hoặc hợp đồng A-04.
+- Chia nhỏ: (1) provider model/URL/parameter validation; (2) Android Keystore AES-GCM và DataStore Repository; (3) ViewModel, Settings UI và composition-root injection; (4) backup exclusion; (5) unit/instrumentation/process-restart tests; (6) build, lint, rà soát bảo mật, cập nhật tài liệu và checkpoint.
+
+### Thiết kế và thay đổi
+
+- Cấu hình provider gồm ID ổn định, tên, Base URL, model, temperature/top-p/max output tokens và cờ HTTP không mã hóa. Default là Experiential Labs, `https://api.experientiallabs.ai/v1`, `deepseek-v4.1-flash-uncensored`; không có API key mặc định. Provider tùy chỉnh dùng ID UUID; ID không sửa khi cập nhật.
+- URL phải hợp lệ, có host, không có userinfo/query/fragment; HTTPS được chấp nhận mặc định. HTTP chỉ được lưu sau khi người dùng bật cờ xác nhận rủi ro, cờ mặc định false. Màn Settings chỉ kiểm tra cấu hình cục bộ và nói rõ chưa kiểm tra mạng; không có “test connection” giả.
+- UI → `SettingsViewModel` → `AiProviderSettingsRepository` → Preferences DataStore/`SecureKeyStore`. API key nhập ở state Compose không dùng `rememberSaveable`, không hiển thị lại sau lưu, byte array đầu vào được xóa sau khi repository hoàn tất. Màn hình hỗ trợ thêm/sửa/chọn provider, show/hide, tham số, lưu và xóa key có xác nhận.
+- Android Keystore sinh AES-256 key không xuất được riêng cho mỗi lần lưu; `AES/GCM/NoPadding`, IV ngẫu nhiên 96-bit, tag 128-bit, provider ID làm AAD. Preferences DataStore giữ IV/ciphertext/alias và metadata, không có field plaintext. Room schema không thay đổi.
+- Khi thay key: mã hóa dưới alias mới → thay metadata/ciphertext trong một lần cập nhật DataStore → xóa alias cũ. Khi xóa: gỡ payload khỏi DataStore trước rồi xóa alias. Keystore không sẵn sàng, alias mất/invalidated hoặc tag sai trả mã lỗi đã làm sạch; trạng thái chuyển thành cần nhập lại, không crash/không tự xóa ciphertext hoặc nội dung truyện. Exception message và secret không được đưa vào UI/log.
+- Nếu DataStore ghi bị lỗi/hủy sau khi alias mới tạo, không xóa alias đó vì không thể biết chắc transaction đã commit; trường hợp này có thể để alias Keystore mồ côi nhưng tránh ciphertext đã commit mất khóa. Xóa alias thất bại sau khi ciphertext đã xóa cũng có thể để alias mồ côi; UI báo trạng thái dọn dẹp.
+- Đặt file DataStore riêng `files/datastore/ai_provider_settings.preferences_pb`, loại khỏi cloud backup, device-to-device transfer và legacy full backup. Chưa có file backup thủ công; task backup tương lai phải tiếp tục loại cấu hình provider/key.
+
+### File tạo hoặc chỉnh sửa
+
+- Tạo domain/settings: `app/src/main/java/com/hoangtu/aistorystudio/core/ai/settings/AiProviderConfiguration.kt`, `AiProviderSettingsRepository.kt`, `DataStoreAiProviderSettingsRepository.kt`.
+- Tạo DataStore binding: `app/src/main/java/com/hoangtu/aistorystudio/core/datastore/AiProviderDataStore.kt`.
+- Tạo bảo mật: `app/src/main/java/com/hoangtu/aistorystudio/core/security/SecureKeyStore.kt`, `AndroidKeyStoreSecureKeyStore.kt`.
+- Tạo app wiring: `app/src/main/java/com/hoangtu/aistorystudio/StudioApplication.kt`, `feature/settings/SettingsViewModel.kt`, `SettingsViewModelFactory.kt`; cập nhật `MainActivity.kt`, `core/navigation/StudioApp.kt`, `feature/settings/SettingsScreen.kt`.
+- Sửa `app/build.gradle.kts`, `gradle/libs.versions.toml`, `app/src/main/AndroidManifest.xml`, `app/src/main/res/xml/backup_rules.xml`, `data_extraction_rules.xml`.
+- Unit test: `app/src/test/java/com/hoangtu/aistorystudio/core/ai/settings/FakeSecureKeyStore.kt`, `AiProviderConfigurationTest.kt`, `DataStoreAiProviderSettingsRepositoryTest.kt`.
+- Instrumentation: `app/src/androidTest/java/com/hoangtu/aistorystudio/A05CredentialRestartInstrumentedTest.kt`, `A05SecurityInstrumentedTest.kt`, `A05SettingsInstrumentedTest.kt`.
+- Cập nhật `docs/ARCHITECTURE.md`, `docs/DECISIONS.md` (ADR-005), `docs/ROADMAP.md`, `docs/TEST_PLAN.md` và nhật ký này. Không sửa `app/schemas/` hoặc Room.
+
+### Build, test và bằng chứng
+
+Gradle chạy bằng Wrapper/JBR 25. AVD `Medium_Phone_API_37.0` dùng ADB server port 5038 để không nhắm điện thoại Xiaomi.
+
+| Lệnh/kịch bản | Kết quả |
+|---|---|
+| `gradlew.bat testDebugUnitTest --offline --rerun-tasks --console=plain` | PASS — `BUILD SUCCESSFUL`, 26 task thực thi; 20 test, 0 failure/error/skipped: 8 A-04, 4 URL/configuration A-05, 7 repository/DataStore A-05, 1 test mẫu. Chạy offline sau khi dependency đã cache. XML: `app/build/test-results/testDebugUnitTest/` gồm `FakeAiProviderTest.xml`, `AiProviderConfigurationTest.xml`, `DataStoreAiProviderSettingsRepositoryTest.xml`, `ExampleUnitTest.xml`. |
+| `gradlew.bat assembleDebug testDebugUnitTest lintDebug --console=plain` | PASS — lần chạy cuối trên trạng thái sẽ commit: `BUILD SUCCESSFUL`, 53 actionable tasks (3 executed, 50 up-to-date); tạo/giữ APK debug `app/build/outputs/apk/debug/app-debug.apk`. |
+| `lintDebug` | PASS — 0 lỗi, 13 warning: nhãn manifest/resource scaffold, gợi ý version dependency cũ; không nâng cấp toolchain/dependency chỉ để loại warning. Báo cáo `app/build/reports/lint-results-debug.html`, `.sarif`, `.txt`. |
+| `gradlew.bat :app:assembleDebug :app:assembleDebugAndroidTest --console=plain` | PASS — build APK app và instrumentation APK sau khi thêm test process restart. |
+| `gradlew.bat connectedDebugAndroidTest --console=plain` với `ANDROID_ADB_SERVER_PORT=5038` | Không xác nhận PASS: Gradle in `BUILD SUCCESSFUL` nhưng worker báo không truy xuất được API level (`adb.exe: device 'emulator-5554' not found`) khi thu thập kết quả; thư mục report không có XML test đáng tin cậy. Không dựa vào exit code/build status này. |
+| Cài hai APK vào AVD rồi `adb -P 5038 -s emulator-5554 shell am instrument -w -r com.hoangtu.aistorystudio.test/androidx.test.runner.AndroidJUnitRunner` | PASS — chạy lại sau chỉnh fixture cuối: output trực tiếp `OK (18 tests)`, 0 failure; gồm 4 test A-05 và 14 hồi quy A-02/A-03/mẫu. Bằng chứng: `app/build/outputs/androidTest-results/connected/debug/manual-instrumentation-a05.txt`. |
+| Kiểm tra process restart thật trên AVD | PASS — chạy test `phase=seed`, `adb shell am force-stop com.hoangtu.aistorystudio`, mở lại bằng `adb shell monkey -p com.hoangtu.aistorystudio -c android.intent.category.LAUNCHER 1` (process PID sau mở là 4360), rồi chạy test `phase=verify`; test đọc đúng fixture bằng DataStore + Android Keystore và xóa key. Output seed/verify: `manual-process-seed-a05.txt`, `manual-process-verify-a05.txt` cùng thư mục trên. |
+| Kiểm tra backup rule và lưu trữ | PASS — instrumentation parse rule cloud/device transfer/legacy backup; UI instrumentation lưu fixture, xác nhận raw DataStore file không chứa plaintext, Activity recreation giữ trạng thái, xác nhận xóa key. |
+
+Lần instrumentation đầu tiên có một lỗi assertion trong test backup: expected string của test thiếu `domain=file`; XML rule production đã đúng. Đã sửa assertion, build lại và AndroidJUnitRunner sau sửa đạt 18/18. Sau đó đổi một fixture giả sang chuỗi trung tính để tránh scanner nhận diện nhầm mẫu key; build debug/unit/lint và runner 18/18 đã chạy lại trên trạng thái cuối. ADB/Gradle `connectedDebugAndroidTest` còn vấn đề thu thập report trên server riêng, nên runner trực tiếp là bằng chứng instrumentation được dùng.
+
+Gradle phát cảnh báo protobuf DataStore gọi `sun.misc.Unsafe` đã deprecated; APK báo không strip được một số native library và đóng gói nguyên. Chúng không làm unit/instrumentation thất bại.
+
+### Kết luận nghiệm thu và rủi ro
+
+- Các tiêu chí provider cấu hình, URL HTTPS mặc định, lưu DataStore, AES-256-GCM/Android Keystore, không plaintext, cô lập nhiều provider, thay/xóa key, lỗi ciphertext/Keystore, backup rule và Settings cục bộ đã có test đạt trên JVM/AVD API 37.
+- Kiểm thử seed → force-stop → mở lại ứng dụng → verify đã xác nhận sử dụng key sau khi process mới khởi động. Không dùng API key cá nhân, mạng hoặc backend.
+- Rủi ro còn lại: API key plaintext hiện diện tạm trong bộ nhớ trong lúc nhập/giải mã và app/process được phép sử dụng Keystore key; thiết bị root hoặc process bị xâm nhập có thể gọi thao tác giải mã. Keystore mồ côi có thể còn nếu ghi/xóa metadata gặp lỗi; ciphertext không được giữ sống khi xóa được xác nhận. Chưa có backup thủ công, provider HTTP thật, SSE hoặc kết nối API (C-03/C-04 ngoài phạm vi).
+- A-05 đạt trong phạm vi backlog và prompt. Không tuyên bố API provider kết nối thành công. A-01 vẫn chưa hoàn tất do thiếu smoke test điện thoại thật. Không triển khai A-06 hoặc C-03.

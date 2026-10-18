@@ -31,9 +31,10 @@ import com.hoangtu.aistorystudio.feature.library.LibraryScreen
 import com.hoangtu.aistorystudio.feature.novel.NovelScreen
 import com.hoangtu.aistorystudio.feature.roleplay.RoleplayScreen
 import com.hoangtu.aistorystudio.feature.settings.SettingsScreen
+import com.hoangtu.aistorystudio.feature.settings.SettingsViewModel
 
 @Composable
-fun StudioApp() {
+fun StudioApp(settingsViewModel: SettingsViewModel) {
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route ?: StudioDestination.HOME.route
@@ -68,6 +69,7 @@ fun StudioApp() {
                 }
                 StudioNavHost(
                     navController = navController,
+                    settingsViewModel = settingsViewModel,
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxHeight()
@@ -141,6 +143,7 @@ private fun StudioNavigationRail(
 @Composable
 private fun StudioNavHost(
     navController: NavHostController,
+    settingsViewModel: SettingsViewModel,
     modifier: Modifier = Modifier
 ) {
     NavHost(
@@ -168,7 +171,7 @@ private fun StudioNavHost(
             LibraryScreen()
         }
         composable(StudioDestination.SETTINGS.route) {
-            SettingsScreen()
+            SettingsScreen(settingsViewModel)
         }
     }
 }

@@ -32,10 +32,13 @@ Các quyết định dưới đây ghi lại hướng thiết kế và trạng t
 
 ## ADR-005 — API token được mã hóa bằng Android Keystore
 
-- **Trạng thái:** chọn cho thiết kế; chưa triển khai.
-- **Quyết định:** sinh khóa AES-GCM không xuất được trong Android Keystore; lưu ciphertext và metadata tối thiểu; chỉ giải mã trong bộ nhớ khi gửi request.
-- **Lý do:** không lưu token dạng rõ trong Room, source, log hay APK.
-- **Hệ quả:** xử lý riêng việc người dùng xóa dữ liệu/đổi thiết bị/Keystore invalidation; token cần nhập lại khi không thể giải mã. API token bị loại khỏi backup.
+- **Trạng thái:** đã triển khai nền tảng ở A-05; chưa có consumer gọi AI qua mạng.
+- **Quyết định:** `AndroidKeyStoreSecureKeyStore` tạo khóa AES-256 không xuất được cho mỗi lần lưu key. Dùng `AES/GCM/NoPadding`, IV 96-bit do Cipher tạo ngẫu nhiên, tag 128-bit và provider ID làm AAD. Preferences DataStore lưu ciphertext/IV/alias và metadata provider; không lưu plaintext trong Room, source, BuildConfig, resource hoặc log.
+- **Thay khóa/xóa:** lưu key mới dưới alias mới, thay ciphertext/alias trong một lần ghi DataStore, rồi xóa alias cũ. Xóa key gỡ ciphertext trước khi xóa alias. Nếu DataStore/Keystore gặp lỗi, trả mã lỗi domain không kèm exception message hoặc secret; không xóa DB truyện. Alias mồ côi có thể còn nếu transaction lưu bị hủy/lỗi hoặc xóa alias thất bại, nhưng không còn payload để dùng.
+- **Keystore/ciphertext không đọc được:** giữ metadata provider và ciphertext, đánh dấu cần nhập lại; không crash và không tự xóa dữ liệu truyện. API key được loại khỏi cloud backup, device transfer và legacy Auto Backup bằng rule loại trừ file DataStore riêng.
+- **Kiểm chứng A-05:** unit test DataStore/repository với FakeSecureKeyStore; instrumentation dùng Android Keystore thật cho AES-GCM, tag/AAD, xóa và dữ liệu backup. Một test ADB riêng đã seed ciphertext, force-stop rồi mở lại app và đọc đúng fixture sau khi process mới khởi động.
+- **Giới hạn:** dữ liệu plaintext xuất hiện tạm trong bộ nhớ khi người dùng nhập hoặc khi consumer tương lai sử dụng; Keystore ngăn trích xuất khóa nhưng không ngăn process đã được cấp quyền sử dụng khóa. Backup archive thủ công chưa tồn tại và phải loại trừ cấu hình này khi được triển khai.
+- **Tham khảo:** [Android Keystore](https://developer.android.com/privacy-and-security/keystore), [DataStore và backup](https://developer.android.com/topic/libraries/architecture/datastore#device-backup-and-restore).
 
 ## ADR-006 — Tách dữ liệu và ngữ cảnh Roleplay/Novel
 

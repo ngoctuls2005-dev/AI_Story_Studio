@@ -91,6 +91,24 @@ Unit test JVM tại `app/src/test/java/com/hoangtu/aistorystudio/core/ai/FakeAiP
 
 Các test này xác nhận provider fake và giao kèo luồng; **không** xác nhận Chat UI hoặc Novel Editor đang chạy offline. Hai consumer giao diện chưa được triển khai. Chạy suite không cần mạng bằng `gradlew.bat testDebugUnitTest --offline --console=plain` sau khi các dependency đã được cache.
 
+## Kiểm thử A-05 — Cấu hình provider và API key
+
+Unit test JVM tại `app/src/test/java/com/hoangtu/aistorystudio/core/ai/settings/` kiểm thử validation URL/tham số và `DataStoreAiProviderSettingsRepository` bằng Preferences DataStore tạm cùng `FakeSecureKeyStore`. Fake chỉ phục vụ test; không thay thế bằng chứng Keystore của Android.
+
+| Kịch bản | Bằng chứng/assertion |
+|---|---|
+| Cấu hình mặc định | Provider Experiential Labs, URL HTTPS và model ban đầu xuất hiện; chưa có key. |
+| URL | HTTPS hợp lệ được chấp nhận; HTTP mặc định bị từ chối, chỉ được chấp nhận sau xác nhận rõ; URL sai, URL có userinfo/query hoặc port sai bị từ chối. |
+| Lưu/đọc và restart | DataStore file được đóng/reopen; repository mới đọc được cấu hình và key fixture từ ciphertext. Instrumentation riêng dùng Android Keystore thật, seed key, `adb shell am force-stop`, mở lại launcher rồi đọc key từ process mới. |
+| Không lưu plaintext | Unit test quét bytes của Preferences file; Compose instrumentation kiểm tra DataStore file thật sau lưu không chứa fixture dạng rõ. |
+| Nhiều provider và cập nhật | Hai provider đọc đúng key riêng; thay khóa trả khóa mới và xóa alias cũ; lựa chọn provider active được lưu. |
+| Xóa key | Sau khi xóa xác nhận, đọc trả Missing, ciphertext không còn, cấu hình provider vẫn tồn tại. |
+| Ciphertext/Keystore lỗi | Instrumentation sửa ciphertext thật và xác minh GCM từ chối; unit test mô phỏng `KEYSTORE_UNAVAILABLE` và `KEY_INVALIDATED`, repository báo cần nhập lại, giữ cấu hình/ciphertext và không lộ exception/secret. |
+| Cục bộ và UI | Settings thêm/sửa, ẩn/hiện input, lưu, kiểm tra cục bộ, xác nhận xóa và trạng thái sau Activity recreation. UI ghi rõ không kiểm tra mạng. |
+| Android Backup | Instrumentation parse resource rules, xác nhận cấu hình DataStore bị loại khỏi cloud backup, device transfer và full backup cũ. Không có tính năng backup thủ công trong A-05. |
+
+Kết quả A-05 lần này: 11 unit test A-05 (cùng 8 test A-04 và 1 test mẫu); AndroidJUnitRunner trực tiếp trên AVD API 37 chạy 18 test tổng cộng, 0 failure. `connectedDebugAndroidTest` qua Gradle báo BUILD SUCCESSFUL nhưng worker không lấy được device API level từ ADB port riêng và report không đủ test result; không tính trạng thái task đó là PASS. Lệnh ADB runner trực tiếp cùng test process-restart được ghi trong `docs/TASK_LOG.md`; log nằm trong `app/build/outputs/androidTest-results/connected/debug/` (thư mục build bị ignore).
+
 ## Ma trận V1.0 sau khi có tính năng
 
 | Tầng | Kịch bản chính | Tiêu chí |
