@@ -172,3 +172,51 @@ Trong quá trình sửa, build ban đầu bắt lỗi dùng method reference t�
 - Tạo `docs/GIT_WORKFLOW.md` và cập nhật `AGENTS.md` để quy định thứ tự hoàn thành → kiểm thử → TASK_LOG → commit → rà soát bảo mật → push có yêu cầu → xác minh remote. Chưa coi commit local là bằng chứng push thành công.
 - `git push -u origin HEAD:main` hoàn tất thành công; GitHub nhận merge commit `e5aefa64c98b94128e3dbfe22789584aa5b5a449` trên `main`.
 - Sau push, `git fetch origin` và `git ls-remote origin refs/heads/main` xác nhận remote SHA bằng local HEAD. Kiểm tra `origin/main` xác nhận A-01 (`31b206e`, `a286729`), A-02 (`f2b4733`) và A-03 (`ac5f623`) vẫn là ancestor; Android Manifest/MainActivity, Room schema V1, README, AGENTS.md và các tài liệu kiến trúc/test/task log đều có trong remote tree.
+
+## A-04 — 18/10/2026
+
+### Phạm vi và kiểm tra trước khi sửa
+
+- Đọc toàn bộ `AGENTS.md`, `docs/BACKLOG_V1.md`, `docs/ARCHITECTURE.md`, `docs/DECISIONS.md`, `docs/TEST_PLAN.md`, `docs/TASK_LOG.md` và `docs/GIT_WORKFLOW.md`. Backlog xác định A-04 P0: `AiProvider`, fake stream offline có độ trễ/lỗi chủ động; mô phỏng thành công/200, 401, 429, 500, timeout và ngắt stream.
+- Working tree sạch trên `main` tại checkpoint GitHub `12fcb85857c81ec4f6de2c25b4930b8b7aa2ee19`; A-01/A-02/A-03 vẫn giữ nguyên. Không push trong nhiệm vụ này.
+- A-01 vẫn chưa đủ điều kiện nghiệm thu: chưa có smoke test cài và mở APK trên điện thoại thật. ADB nhận Xiaomi API 33 nhưng không cài/mở APK trong lượt này.
+- Toolchain: AGP 9.4.1, Gradle Wrapper 9.6.0, Kotlin Compose plugin 2.2.10, SDK 37, Gradle daemon JDK 25. JDK PATH mặc định là 27; dùng Android Studio JBR 25 và `TEMP/TMP=C:\jtmp` khi build. Giữ nguyên AGP/Gradle/Kotlin/SDK.
+- Coroutines core được giải quyết sẵn về 1.9.0 trong runtime classpath. Thêm khai báo trực tiếp core và test 1.9.0 để provider có API Flow trực tiếp và unit test điều khiển thời gian; không nâng phiên bản runtime đã resolve.
+- Chia việc: (1) mô hình request/event/lỗi domain; (2) fake scenarios cố định, streaming và delay; (3) kiểm thử scheduler, cancellation, timeout, lỗi và đồng thời; (4) cập nhật kiến trúc/test plan/task log; (5) chạy build, unit, lint và instrumentation regression.
+
+### Thiết kế và thay đổi
+
+- `AiRequest` mang danh sách lịch sử `SYSTEM`/`USER`/`ASSISTANT`, dùng chung được cho Roleplay và Novel, không có trường provider/model/API key.
+- `AiProvider` nằm trong `core.ai`, độc lập UI/HTTP và trả `Flow<AiStreamEvent>`. Sự kiện gồm `TextDelta`, `Completed` và `Failed`; lỗi domain phân biệt Unauthorized, RateLimited, ServerError, Timeout, Interrupted và EmptyResponse, không chứa HTTP response thô. Cancellation của coroutine không bị bắt hoặc chuyển thành lỗi.
+- `FakeAiProvider` chọn scenario mặc định hoặc theo `AiRequest`; mặc định trả nội dung tiếng Việt cố định. Hỗ trợ thành công, 401, 429, 500, timeout có delay ảo, ngắt stream sau partial và phản hồi rỗng. Độ trễ giữa chunk dùng `delay`, có thể điều khiển bằng `TestCoroutineScheduler`; fake không dùng OkHttp hay gọi mạng.
+- Chưa tích hợp provider vào Chat UI hoặc Novel Editor vì các consumer đó chưa có nghiệp vụ; không tuyên bố hai màn chạy offline.
+
+### File tạo hoặc chỉnh sửa
+
+- Tạo `app/src/main/java/com/hoangtu/aistorystudio/core/ai/AiProvider.kt` và `FakeAiProvider.kt`.
+- Tạo `app/src/test/java/com/hoangtu/aistorystudio/core/ai/FakeAiProviderTest.kt` với 8 test cho Unicode/ghép chunk/completion một lần, lỗi 401/429/500/rỗng, timeout ảo, ngắt stream, delay giữa chunk, cancellation và hai request đồng thời.
+- Sửa `app/build.gradle.kts` và `gradle/libs.versions.toml` để khai báo coroutines core/test 1.9.0.
+- Cập nhật `docs/ARCHITECTURE.md`, ADR-004 trong `docs/DECISIONS.md`, và thêm mục A-04 vào `docs/TEST_PLAN.md`.
+- Tạo report instrumentation thủ công trong thư mục build bị ignore: `app/build/outputs/androidTest-results/connected/debug/manual-instrumentation-a04.txt`.
+
+### Build, test và bằng chứng
+
+Gradle chạy bằng Wrapper với Android Studio JBR 25 và `TEMP/TMP=C:\jtmp`. ADB dùng server riêng port 5038 để chỉ nhắm AVD, không cài test APK lên điện thoại Xiaomi.
+
+| Lệnh/kịch bản | Kết quả |
+|---|---|
+| `gradlew.bat testDebugUnitTest --offline --rerun-tasks --console=plain` | PASS — `BUILD SUCCESSFUL`, 26 task thực thi; 9 test tổng cộng (8 A-04 + 1 test mẫu), 0 failure/error/skipped. Chạy offline sau khi dependency đã cache. XML: `app/build/test-results/testDebugUnitTest/TEST-com.hoangtu.aistorystudio.core.ai.FakeAiProviderTest.xml` và `TEST-com.hoangtu.aistorystudio.ExampleUnitTest.xml`. |
+| `gradlew.bat assembleDebug testDebugUnitTest lintDebug --console=plain` | PASS — `BUILD SUCCESSFUL`, 53 actionable tasks (5 executed, 48 up-to-date); APK debug build thành công. Unit task up-to-date trong lệnh kết hợp; lần chạy đầy đủ và mới nhất được xác nhận bằng lệnh offline ở trên. |
+| `gradlew.bat lintDebug` (trong lệnh kết hợp) | PASS — 0 lỗi, 13 warning. Report: `app/build/reports/lint-results-debug.html` và `.txt`. Có 11 warning scaffold/toolchain đã có và 2 gợi ý nâng coroutines 1.9.0; giữ phiên bản 1.9.0 vì đang khớp runtime đã resolve và không có lỗi tương thích cần nâng cấp. |
+| `gradlew.bat connectedDebugAndroidTest --console=plain` | BLOCKED ở khâu runner/output: Gradle báo `BUILD SUCCESSFUL` nhưng report tạo 0 test; worker không tìm thấy serial emulator qua ADB và không cài instrumentation APK. Không xem đây là PASS. Đã thử với AVD API 37 ở serial 5556 và 5554, gồm một lần `--no-daemon`. |
+| Cài APK app + test lên AVD `Medium_Phone_API_37.0`, rồi `adb -s emulator-5554 shell am instrument -w -r com.hoangtu.aistorystudio.test/androidx.test.runner.AndroidJUnitRunner` | PASS — output trực tiếp `OK (14 tests)`, thời gian 18.61 giây; 0 failure/error. Gồm hồi quy điều hướng/theme A-02 và database/migration A-03. Log: `app/build/outputs/androidTest-results/connected/debug/manual-instrumentation-a04.txt`. A-04 provider được kiểm thử bằng unit test JVM, không có instrumentation riêng. |
+| Rà soát test kết quả và diff | PASS — XML unit xác nhận 9 test, 0 failure/error/skipped; manual runner xác nhận 14 test; `git diff --check` không có lỗi whitespace ở diff nhiệm vụ. |
+
+Lệnh Gradle `connectedDebugAndroidTest` hoàn tất với exit code 0 nhưng chưa tạo test result (Gradle HTML ghi 0 test, worker stderr báo thiết bị không tồn tại). Vì vậy đã chạy AndroidJUnitRunner trực tiếp qua ADB server đang thấy AVD và xác nhận kết quả thật là 14 test. Không thay đổi ADB hoặc cài đặt trên điện thoại thật.
+
+### Kết luận nghiệm thu và giới hạn
+
+- Các điều kiện provider-level của A-04 được kiểm thử offline: stream xác định, Unicode, event terminal, các lỗi, timeout theo virtual time, cancellation giữa stream, không phát thêm sau hủy và cách ly hai request đồng thời.
+- A-04 đạt ở phạm vi abstraction/Fake/test harness. Điều kiện backlog về việc dùng thử trực tiếp Chat UI và Novel Editor hoàn toàn offline chưa thể kiểm chứng vì hai consumer chưa được triển khai; không tuyên bố hai màn đã chạy offline. Đây là giới hạn tích hợp được ghi nhận, không phải kiểm thử UI đạt.
+- `connectedDebugAndroidTest` qua Gradle hiện cho report rỗng trong cấu hình ADB tách server; instrumentation vẫn được xác nhận bằng runner trực tiếp trên AVD. Cảnh báo `sun.misc.Unsafe` từ protobuf vẫn xuất hiện nhưng không làm 14 test thất bại.
+- A-01 tiếp tục chưa hoàn thành vì chưa smoke test trên điện thoại thật. Không triển khai A-05, C-03, C-04 hoặc nhiệm vụ khác.

@@ -73,6 +73,24 @@ Instrumentation tests nằm tại `app/src/androidTest/java/com/hoangtu/aistorys
 
 Schema V1 được xuất vào `app/schemas/com.hoangtu.aistorystudio.core.database.StudioDatabase/1.json`. Chưa có migration thật nên version vẫn là 1. Khi schema chuyển V1→V2: giữ file JSON version 1, thay đổi schema/entity và tăng version lên 2 trong cùng thay đổi, thêm `Migration(1, 2)` có tên vào registry, tạo DB V1 với dữ liệu đại diện qua MigrationTestHelper, chạy `runMigrationsAndValidate(..., 2, true, MIGRATION_1_2)` rồi xác nhận giá trị, quan hệ, index và FK của các hàng cũ. Không dùng destructive fallback hoặc xóa DB hiện hành để làm test đạt.
 
+## Kiểm thử A-04 — AiProvider và FakeAiProvider
+
+Unit test JVM tại `app/src/test/java/com/hoangtu/aistorystudio/core/ai/FakeAiProviderTest.kt` dùng JUnit 4 và `kotlinx-coroutines-test` 1.9.0. Test fake chỉ dùng fixture cố định và Flow/coroutine; không có HTTP client, API key, endpoint hoặc yêu cầu Internet.
+
+| Kịch bản | Assertion |
+|---|---|
+| Thành công / HTTP 200 tương đương | Ghép các text delta khớp chuỗi mong đợi và chỉ có đúng một `Completed`. |
+| Unicode tiếng Việt | Dấu tiếng Việt và ký tự emoji không đổi sau khi nhận các chunk. |
+| 401 / 429 / 500 | Lần lượt trả lỗi domain `Unauthorized`, `RateLimited`, `ServerError`; không làm lộ HTTP response thô. |
+| Timeout | `FakeAiScenario.Timeout` phát lỗi timeout sau delay ảo; `TestCoroutineScheduler` chạy tới terminal mà không chờ thời gian thật. |
+| Ngắt stream | Giữ partial text, phát đúng lỗi `Interrupted`, không phát `Completed`. |
+| Response rỗng | Cả scenario rỗng và success không có chunk đều phát `EmptyResponse`. |
+| Hủy giữa stream | Collector nhận partial đầu, cancellation truyền tới `onCompletion`, không nhận chunk tiếp theo/completion và Job kết thúc. |
+| Hai request đồng thời | Scenario theo từng `AiRequest` cho kết quả độc lập, không trộn chunk. |
+| Delay giữa chunk | `advanceTimeBy` xác nhận chunk sau chỉ xuất hiện khi scheduler tới hạn; không sleep đồng hồ thật. |
+
+Các test này xác nhận provider fake và giao kèo luồng; **không** xác nhận Chat UI hoặc Novel Editor đang chạy offline. Hai consumer giao diện chưa được triển khai. Chạy suite không cần mạng bằng `gradlew.bat testDebugUnitTest --offline --console=plain` sau khi các dependency đã được cache.
+
 ## Ma trận V1.0 sau khi có tính năng
 
 | Tầng | Kịch bản chính | Tiêu chí |

@@ -10,6 +10,7 @@
 - Navigation nằm trong `core.navigation`; thành phần giao diện dùng chung ở `core.ui`; từng màn hình thuộc package `feature.*`. UI hiện chưa có ViewModel theo feature.
 - A-03 đã thêm Room 2.8.5, schema V1, 14 Entity, bốn DAO và repository theo nhóm dữ liệu. Room lưu hồ sơ/persona, hội thoại/messages/variants/summary, dự án/chương/cảnh/revisions/liên kết nhân vật, memory facts, novel summaries và timeline. Schema được quản lý tại `app/schemas/com.hoangtu.aistorystudio.core.database.StudioDatabase/1.json`.
 - DataStore, OkHttp/SSE, kho bí mật và nghiệp vụ chat/soạn thảo vẫn chưa được triển khai. Repository A-03 hiện trả Entity; việc bổ sung domain models và Use Case thuộc task sau.
+- A-04 bổ sung abstraction `core.ai.AiProvider` nhận danh sách message trung lập với provider/model và trả `Flow<AiStreamEvent>`. `FakeAiProvider` dùng fixture offline; chưa có provider mạng, cấu hình endpoint hay kết nối từ UI.
 - A-01 vẫn chưa đạt đầy đủ. Điện thoại Xiaomi API 33 đã được ADB nhận diện trong lúc làm A-03 nhưng từ chối cài APK với `INSTALL_FAILED_USER_RESTRICTED`; smoke test điện thoại thật chưa được xác nhận. Xem docs/TASK_LOG.md.
 
 ## Nguyên tắc
@@ -69,7 +70,9 @@ Không tạo sẵn package rỗng chỉ để khớp sơ đồ. Tạo từng ph�
 - **Repository hiện tại:** bốn nhóm repository bọc DAO; `withTransaction` bảo vệ tạo hội thoại/message đầu, thêm message theo sequence, cấp số thứ tự novel và cập nhật summary. Memory chỉ chấp nhận đúng một owner, và repository chặn việc đổi owner của memory/message/summary.
 - **Xóa dữ liệu:** hội thoại được tham chiếu bởi hồ sơ/persona dùng `RESTRICT`; con của hội thoại/chapter/project dùng `CASCADE`; liên kết Novel-character bị xóa cùng project hoặc character. Xóa project xóa toàn bộ nội dung con của project. Xóa nhân vật đang được hội thoại tham chiếu bị từ chối. Memory fact được đánh dấu tombstone bằng `deleted_at`; truy vấn thông thường bỏ qua fact đã xóa.
 - **DataStore:** giữ tùy chọn giao diện, endpoint/model đã chọn và metadata cấu hình. Nếu giữ token mã hóa ở đây, token rõ chỉ tồn tại trong bộ nhớ khi cần gửi request.
-- **AiProvider:** API có thể phát sự kiện nội dung, kết thúc, lỗi và hủy. OkHttp đọc SSE thành các sự kiện có kiểm soát; Fake provider tạo chunk, độ trễ và lỗi xác định.
+- **AiProvider:** API phát `TextDelta`, `Completed` hoặc `Failed` với nhóm lỗi dùng chung. Cancellation là cancellation của coroutine và không chuyển thành sự kiện lỗi. OkHttp/SSE sau này ánh xạ kết quả mạng vào API này; Fake provider tạo chunk, độ trễ ảo và lỗi xác định mà không truy cập mạng.
+- **FakeAiProvider hiện tại:** chọn scenario mặc định hoặc theo `AiRequest`, hỗ trợ thành công (tương đương HTTP 200), unauthorized (401), rate limit (429), server error (500), timeout, ngắt sau partial và phản hồi rỗng. Delay dùng `kotlinx.coroutines.delay`, nên test kiểm soát bằng `TestCoroutineScheduler`.
+- Interface dùng chung cho request Roleplay và Novel thông qua lịch sử `SYSTEM`/`USER`/`ASSISTANT`; chi tiết UI, HTTP, JSON và model được cấu hình ở implementation/use case phù hợp. Có thể truyền implementation bằng constructor injection; hiện chưa có framework DI hoặc consumer UI.
 
 ## Tách Roleplay và Novel
 

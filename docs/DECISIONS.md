@@ -24,10 +24,11 @@ Các quyết định dưới đây ghi lại hướng thiết kế và trạng t
 
 ## ADR-004 — Provider AI qua abstraction và streaming
 
-- **Trạng thái:** chọn cho thiết kế; chưa có provider.
-- **Quyết định:** giao diện AiProvider tách use case khỏi HTTP; FakeAiProvider cho test offline; provider mạng dùng OkHttp và SSE.
+- **Trạng thái:** interface và FakeAiProvider đã triển khai ở A-04; provider mạng chưa triển khai.
+- **Quyết định:** `AiProvider` nằm trong `core.ai`, nhận `AiRequest` gồm lịch sử role/content và phát `Flow<AiStreamEvent>`. Stream phát text delta, một terminal completion hoặc lỗi phân loại; cancellation của coroutine không bị đổi thành lỗi. `FakeAiProvider` hỗ trợ scenario cố định và scenario chọn theo request, không gửi network request.
 - **Lý do:** ứng dụng không cần backend riêng, nhưng cần thử lỗi, cancellation và stream mà không gọi dịch vụ thật.
-- **Ràng buộc:** endpoint và model chỉnh sửa được. deepseek-v4.1-flash-uncensored là model ban đầu người dùng đề xuất, không nhúng cứng vào code và không giả định mọi endpoint đều hỗ trợ.
+- **Ràng buộc:** domain không phụ thuộc OkHttp, JSON, HTTP response, provider hay model cụ thể. Endpoint và model sẽ do cấu hình ở task khác quản lý. `deepseek-v4.1-flash-uncensored` là model ban đầu người dùng đề xuất, không nhúng cứng vào code và không giả định mọi endpoint đều hỗ trợ.
+- **Giới hạn A-04:** test xác nhận FakeAiProvider hoạt động offline; Chat UI và Novel Editor chưa có consumer thực tế nên chưa thể nghiệm thu hai luồng sản phẩm chạy offline.
 
 ## ADR-005 — API token được mã hóa bằng Android Keystore
 
