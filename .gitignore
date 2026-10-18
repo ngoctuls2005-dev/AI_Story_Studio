@@ -1,0 +1,29 @@
+# Android Studio va cau hinh rieng cua may
+.idea/
+*.iml
+local.properties
+
+# Gradle va san pham build
+.gradle/
+.gradle-user-home/
+**/build/
+/build/
+captures/
+.externalNativeBuild/
+.cxx/
+
+# Khoa ky va cau hinh bi mat
+*.jks
+*.keystore
+key.properties
+secrets.properties
+.env
+.env.*
+
+# APK/AAB tao ra tu build
+*.apk
+*.aab
+
+# He dieu hanh
+.DS_Store
+Thumbs.db
