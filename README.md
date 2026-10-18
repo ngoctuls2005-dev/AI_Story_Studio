@@ -1,69 +1,73 @@
 # AI Story Studio
 
-Ung dung Android ca nhan, phat trien bang Kotlin va Jetpack Compose. Pham vi hien tai la nen tang A-01; cac man hinh va Room chua duoc trien khai trong nhiem vu nay.
+Ứng dụng Android cá nhân phát triển bằng Kotlin và Jetpack Compose. Dự án đang ở nền tảng A-01; màn hình hiện tại là scaffold mẫu, chưa có tính năng Roleplay, Novel, Room hay kết nối AI.
 
-## Moi truong build
+## Tài liệu dự án
 
-| Thanh phan | Cau hinh hien tai |
+- docs/BACKLOG_V1.md — phạm vi V1.0, thứ tự nhiệm vụ và tiêu chí nghiệm thu.
+- AGENTS.md — quy tắc làm việc và kiểm thử.
+- docs/ARCHITECTURE.md — kiến trúc mục tiêu và hiện trạng.
+- docs/ROADMAP.md — thứ tự thực hiện và trạng thái.
+- docs/TEST_PLAN.md — kế hoạch kiểm thử và mức chứng minh của test mẫu.
+- docs/DECISIONS.md — các quyết định kiến trúc.
+- docs/TASK_LOG.md — lệnh, bằng chứng và điều kiện nghiệm thu.
+
+## Môi trường build hiện tại
+
+| Thành phần | Cấu hình |
 | --- | --- |
 | Android Gradle Plugin | 9.4.1 |
 | Gradle Wrapper | 9.6.0 |
-| Gradle daemon JDK | 25, duoc pin trong `gradle/gradle-daemon-jvm.properties` |
+| Gradle daemon JDK | 25, ghim trong gradle/gradle-daemon-jvm.properties |
 | Android SDK Platform | 37 |
 | Android SDK Build Tools | 36.0.0 |
 | Kotlin Compose plugin | 2.2.10 |
 | Compose BOM | 2026.02.01 |
-| `minSdk` / `targetSdk` | 26 / 37 |
-| `applicationId` | `com.hoangtu.aistorystudio` |
+| minSdk / targetSdk | 26 / 37 |
+| applicationId | com.hoangtu.aistorystudio |
 
-Compose duoc bat trong module `app` bang `buildFeatures.compose = true`; Material 3 va Compose UI dung Compose BOM. Ma nguon Java dat `sourceCompatibility`/`targetCompatibility` 11. Gradle wrapper la nguon chuan de chay build. Android Studio can dung Gradle JDK 25 cho project nay.
+Compose bật trong module app bằng buildFeatures.compose = true; Material 3 và Compose UI dùng Compose BOM. Java source/target đặt mức 11. Room chưa được thêm; phần đó thuộc A-03.
 
-Room chua duoc them vao module; phan do thuoc A-03.
+AGP 9.4 yêu cầu Gradle 9.6, hỗ trợ API tối đa 37 và Build Tools 36.0.0. Các giá trị này khớp cấu hình hiện tại. Gradle daemon dùng JDK 25. JDK 27 mặc định trên PATH chưa được Gradle 9.6 công bố hỗ trợ làm JVM chạy Gradle; dùng JBR 25 đi kèm Android Studio. Build thực tế và test mẫu đã chạy trên cấu hình này.
 
-## Mo project va build tren Windows
+## Mở project và build trên Windows
 
-1. Cai Android Studio, Android SDK Platform 37 va Build Tools 36.0.0.
-2. Mo thu muc project nay trong Android Studio. De Android Studio tao `local.properties` theo SDK tren may.
-3. Chon Gradle JDK 25 trong **Settings > Build, Execution, Deployment > Build Tools > Gradle**. Co the dung JBR di kem Android Studio.
-4. Trong PowerShell, tro `JAVA_HOME` den JBR 25 truoc khi chay wrapper (sua duong dan neu Android Studio duoc cai noi khac):
+1. Cài Android Studio, Android SDK Platform 37 và Build Tools 36.0.0.
+2. Mở thư mục project trong Android Studio. Giữ local.properties ở máy cá nhân để chỉ đường dẫn Android SDK; không commit file này.
+3. Chọn Gradle JDK 25 tại Settings > Build, Execution, Deployment > Build Tools > Gradle. Có thể dùng JBR đi kèm Android Studio.
+4. Trong PowerShell, đặt JAVA_HOME tới JBR 25 (sửa đường dẫn nếu Android Studio cài ở vị trí khác), sau đó chạy:
 
-```powershell
-$env:JAVA_HOME = 'C:\Program Files\Android\Android Studio\jbr'
-$env:Path = "$env:JAVA_HOME\bin;$env:Path"
-.\gradlew.bat assembleDebug
-.\gradlew.bat testDebugUnitTest
-.\gradlew.bat connectedDebugAndroidTest
-```
+    $env:JAVA_HOME = 'C:\Program Files\Android\Android Studio\jbr'
+    $env:Path = "$env:JAVA_HOME\bin;$env:Path"
+    .\gradlew.bat assembleDebug
+    .\gradlew.bat testDebugUnitTest
+    .\gradlew.bat lintDebug
+    .\gradlew.bat connectedDebugAndroidTest
 
-APK debug duoc tao tai `app/build/outputs/apk/debug/app-debug.apk`.
+APK debug được tạo tại app/build/outputs/apk/debug/app-debug.apk.
 
-## Cai va mo APK
+## Cài và mở APK
 
-Bat USB debugging, ket noi thiet bi, sau do chay:
+Bật USB debugging, kết nối thiết bị và chạy:
 
-```powershell
-adb devices -l
-adb install -r .\app\build\outputs\apk\debug\app-debug.apk
-adb shell monkey -p com.hoangtu.aistorystudio -c android.intent.category.LAUNCHER 1
-```
+    adb devices -l
+    adb install -r .\app\build\outputs\apk\debug\app-debug.apk
+    adb shell monkey -p com.hoangtu.aistorystudio -c android.intent.category.LAUNCHER 1
 
-## Loi NIO loopback trong shell Codex tren Windows
+Tiêu chí điện thoại thật chỉ được ghi PASS sau khi cài và mở trên thiết bị vật lý đang ở trạng thái device.
 
-Neu Gradle bao `Unable to establish loopback connection`, shell co the dang truyen duong dan TEMP dai/ao vao JVM. Tao thu muc tam ngan va chay Gradle trong cung cua so PowerShell:
+## Lỗi NIO loopback trong shell Codex trên Windows
 
-```powershell
-New-Item -ItemType Directory -Path 'C:\jtmp' -Force | Out-Null
-$env:TEMP = 'C:\jtmp'
-$env:TMP = 'C:\jtmp'
-$env:JAVA_HOME = 'C:\Program Files\Android\Android Studio\jbr'
-$env:Path = "$env:JAVA_HOME\bin;$env:Path"
-.\gradlew.bat assembleDebug
-```
+Trong shell Codex Windows hiện tại, Gradle/JVM có thể báo Unable to establish loopback connection khi dùng thư mục TEMP mặc định. Khi lỗi này xuất hiện, tạo thư mục tạm ngắn và đặt biến môi trường cho đúng cửa sổ PowerShell:
 
-Neu Android Studio duoc cai o duong dan khac, thay `JAVA_HOME` bang JBR tuong ung. Cai dat nay chi ap dung cho cua so PowerShell hien tai.
+    New-Item -ItemType Directory -Path 'C:\jtmp' -Force | Out-Null
+    $env:TEMP = 'C:\jtmp'
+    $env:TMP = 'C:\jtmp'
 
-## Bao mat va Git
+Nếu Gradle vẫn không dùng JBR 25, đặt JAVA_HOME và cập nhật PATH như phần trên. Đây là cách khắc phục cho môi trường shell đã quan sát; không sửa source project.
 
-Khong commit `local.properties`, API key, `key.properties`, `secrets.properties`, `.env`, file `.jks` hoac `.keystore`. Khong dua khoa API vao ma nguon hay log. Ban debug dung debug keystore do Android tao tren may; cau hinh ky release thuoc D-06.
+## Bảo mật và Git
 
-Quy tac lam viec theo tung backlog ID nam trong `AGENTS.md`; bang chung build va test duoc ghi trong `docs/TASK_LOG.md`.
+Không commit local.properties, API key, key.properties, secrets.properties, .env, tệp .jks/.keystore hoặc signing secrets. Không đưa khóa API vào mã nguồn hay log. Bản debug dùng debug keystore do Android tạo trên máy; cấu hình ký release thuộc D-06.
+
+Quy tắc làm việc theo backlog nằm trong AGENTS.md; bằng chứng build và test được ghi trong docs/TASK_LOG.md.

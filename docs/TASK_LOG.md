@@ -1,43 +1,48 @@
-# Nhat ky cong viec
+# Nhật ký công việc
 
 ## A-01 — 18/10/2026
 
-### Pham vi va phat hien
+### Phạm vi và hiện trạng
 
-- Kiem tra toan bo `docs/BACKLOG_V1.md`; chi thuc hien A-01.
-- Project ban dau chua duoc khoi tao Git, chua co README va AGENTS. `local.properties` da co va tro den Android SDK tren may.
-- Android SDK co Platform 37, Build Tools 36.0.0, Platform Tools/ADB 37.0.1 va system image/emulator API 37.
-- Gradle Wrapper la 9.6.0; AGP la 9.4.1. Theo bang tuong thich AGP 9.4 can Gradle 9.6, ho tro toi API 37, Build Tools 36.0.0 va JDK toi thieu/mac dinh 17. Gradle 9.6 chay daemon voi JDK 25 theo `gradle/gradle-daemon-jvm.properties`; Android Studio JBR tren may la JDK 25. Java nguon dat muc 11. Java 27 dang la JDK mac dinh cua PATH tren may, nhung Gradle 9.6 chua cong bo ho tro chay tren Java 27; README huong dan dung JBR 25 cho Android Studio va command line.
-- Compose plugin 2.2.10, Compose BOM 2026.02.01 va Material 3 da duoc cau hinh; `buildFeatures.compose` dang bat. Build xac nhan cau hinh plugin va Compose compile duoc.
-- `minSdk` 26, `targetSdk` 37, `applicationId` `com.hoangtu.aistorystudio`. Room chua co; day la A-03 va khong duoc them trong A-01.
-- JDK NIO Selector va Gradle daemon ban dau gap `Unable to establish loopback connection` trong moi truong shell Codex tren Windows. Kiem tra Selector truc tiep tai JDK 17 va 25 cung loi; dat `TEMP`/`TMP` cua tien trinh ve `C:\jtmp` thi Selector mo duoc va Gradle build chay duoc. Day la workaround moi truong, khong can doi source project.
+- Đọc toàn bộ docs/BACKLOG_V1.md. Chỉ thực hiện nền tảng A-01 và các tài liệu người dùng yêu cầu; không thêm màn hình, Navigation, Room hay tính năng Roleplay/Novel.
+- Dự án là một Android app module :app với scaffold Compose mẫu. Chưa có tính năng sản phẩm, Room, DataStore, Navigation hoặc provider AI.
+- applicationId là com.hoangtu.aistorystudio; minSdk 26, targetSdk 37.
+- Android SDK Platform 37, Build Tools 36.0.0, Android Platform Tools có ADB. local.properties có trên máy và không được theo dõi bởi Git.
+- Android Gradle Plugin 9.4.1, Gradle Wrapper 9.6.0, Kotlin Compose plugin 2.2.10, Compose BOM 2026.02.01; Compose bật và Material 3 đã có.
+- Gradle daemon JDK 25 được ghim trong gradle/gradle-daemon-jvm.properties. Android Studio JBR trên máy là OpenJDK 25.0.3. JDK mặc định trên PATH là Java 27; Gradle 9.6 chưa công bố hỗ trợ Java 27 làm JVM chạy daemon. Build dùng JBR 25 và TEMP/TMP ngắn tại C:\jtmp.
+- Kiểm tra tương thích: AGP 9.4 yêu cầu Gradle 9.6, hỗ trợ API tối đa 37 và Build Tools 36.0.0; các phiên bản project khớp. AGP 9 có Kotlin tích hợp với KGP 2.2.10; Kotlin Compose plugin 2.2.10 cùng phiên bản. Build và test thực tế xác nhận cấu hình hiện tại biên dịch được. Java source/target 11 là mức bytecode riêng, không phải JDK chạy Gradle.
+- Không nâng thư viện hoặc plugin; không có lỗi build cần thay đổi toolchain trong phạm vi A-01. Room tiếp tục để A-03.
 
-### File tao/sua
+### File tạo/sửa
 
-- Tao `AGENTS.md`: quy tac pham vi backlog, bao mat, comment code, build/test va Git checkpoint.
-- Tao `README.md`: stack/version hien tai, cach mo project, build/test, cai APK va workaround NIO tren shell Codex Windows.
-- Tao `docs/TASK_LOG.md`: ket qua va bang chung A-01.
-- Cap nhat `.gitignore`: bo qua Android Studio local state, local.properties, build output, signing keys, secrets va APK/AAB.
-- Khoi tao Git va tao checkpoint cuc bo sau khi hoan tat thay doi A-01.
+- Tạo AGENTS.md với quy tắc backlog, bảo mật, comment code, kiểm thử và ghi bằng chứng.
+- Tạo docs/ARCHITECTURE.md mô tả hiện trạng và kiến trúc đích; ghi rõ phần đích chưa triển khai.
+- Tạo docs/ROADMAP.md với trạng thái thực tế, cổng backlog và thứ tự đề xuất.
+- Tạo docs/TEST_PLAN.md với test A-01, test mẫu hiện có và ma trận kiểm thử V1.0.
+- Tạo docs/DECISIONS.md với quyết định kiến trúc dựa trên yêu cầu và backlog; đánh dấu phần chưa triển khai.
+- Cập nhật README.md sang tiếng Việt có dấu, hướng dẫn môi trường build và bảo mật.
+- Cập nhật .gitignore để bỏ qua thư mục .kotlin do Kotlin Gradle plugin tự tạo trong quá trình build.
+- Cập nhật docs/TASK_LOG.md để lưu bằng chứng của lượt này.
+- Không sửa mã ứng dụng hay thêm thư viện. Người dùng yêu cầu các tài liệu kiến trúc trong A-01; đây là phần tài liệu được làm sớm, không đánh dấu A-06 hoàn tất vì cấu hình test runner/Compose test/MockWebServer của A-06 chưa làm.
 
-### Lenh va ket qua
+### Lệnh và kết quả
 
-Tat ca lenh Gradle duoi day chay trong PowerShell voi `TEMP=C:\jtmp`, `TMP=C:\jtmp` va `JAVA_HOME` tro den JBR Android Studio JDK 25.
+Các lệnh Gradle chạy trong PowerShell với TEMP/TMP=C:\jtmp, JAVA_HOME trỏ tới Android Studio JBR 25 và Gradle daemon JDK 25 theo cấu hình project.
 
-| Lenh | Ket qua |
-| --- | --- |
-| `gradlew.bat assembleDebug` | **PASS** — `BUILD SUCCESSFUL`, 36 actionable tasks; APK tao tai `app/build/outputs/apk/debug/app-debug.apk` (12,052,400 bytes). |
-| `gradlew.bat testDebugUnitTest` | **PASS** — 1 test, 0 failure, 0 error; XML: `app/build/test-results/testDebugUnitTest/TEST-com.hoangtu.aistorystudio.ExampleUnitTest.xml`. Day la unit test mau `2 + 2`. |
-| `gradlew.bat connectedDebugAndroidTest` | **PASS** — 1 instrumented test, 0 failure, 0 error tren emulator API 37 (`emulator-5554`); XML: `app/build/outputs/androidTest-results/connected/debug/TEST-com.hoangtu.aistorystudio.ExampleInstrumentedTest.xml`. Test mau xac nhan package name. |
-| `gradlew.bat lintDebug` | **PASS** — `BUILD SUCCESSFUL`, 0 errors, 10 warnings; report: `app/build/reports/lint-results-debug.html`. Warning gom label Manifest trung lap, goi y co phien ban dependency moi va cac mau mau khong dung. |
-| `adb install -r app/build/outputs/apk/debug/app-debug.apk` tren `emulator-5554` | **PASS** — ADB tra `Success`. `adb shell getprop ro.build.version.sdk` tra `37`. |
-| `adb shell am start -W -n com.hoangtu.aistorystudio/.MainActivity` | **PASS** — `Status: ok`; Activity `MainActivity` o trang thai `RESUMED` va co window foreground trong `dumpsys activity`. Logcat khong co `FATAL EXCEPTION` cho package. |
-| Kiem tra thiet bi that bang `adb devices -l` | **BLOCKED** — thiet bi `JBZTBABQLBI7BYVG` chuyen sang `offline`; khong doc duoc API level, khong cai/mo APK tren dien thoai that. |
+| Lệnh/kịch bản | Kết quả |
+|---|---|
+| gradlew.bat assembleDebug testDebugUnitTest --rerun-tasks | PASS — BUILD SUCCESSFUL; 42 actionable tasks executed. Tạo APK debug 12,052,400 bytes; SHA-256 23869500E361D2F64A6476D17BA1BE260FC89598C6547A59D8CE5CC59F1E26EC. Gradle cảnh báo không thể strip libandroidx.graphics.path.so và đóng gói nguyên thư viện. |
+| Test unit trong lệnh trên | PASS — 1 test, 0 failure, 0 error; đây là test mẫu phép cộng, chưa kiểm tra nghiệp vụ ứng dụng. XML: app/build/test-results/testDebugUnitTest/TEST-com.hoangtu.aistorystudio.ExampleUnitTest.xml. |
+| gradlew.bat lintDebug | PASS — BUILD SUCCESSFUL, 10 cảnh báo lint, 0 lỗi. Báo cáo: app/build/reports/lint-results-debug.html và app/build/reports/lint-results-debug.sarif. Cảnh báo gồm nhãn thừa, gợi ý dependency và tài nguyên chưa dùng trong scaffold. |
+| gradlew.bat connectedDebugAndroidTest | PASS — 1 test, 0 failure, 0 error trên Medium_Phone_API_37.0 (emulator-5554), API 37. XML: app/build/outputs/androidTest-results/connected/debug/TEST-Medium_Phone_API_37.0(AVD) - 17.xml. Test mẫu kiểm tra package context. Có cảnh báo deprecated Unsafe từ protobuf trong quá trình chạy; test không thất bại. |
+| adb install -r app/build/outputs/apk/debug/app-debug.apk | PASS trên emulator — ADB trả Success. |
+| adb shell am start -W -n com.hoangtu.aistorystudio/.MainActivity | PASS trên emulator — Status: ok, Activity MainActivity được resume. Lọc 500 dòng logcat gần nhất không thấy FATAL EXCEPTION của package. |
+| adb devices -l | BLOCKED cho tiêu chí điện thoại thật — chỉ có emulator API 37 online; không có điện thoại vật lý kết nối. |
+| git ls-files local.properties '*.jks' '*.keystore' '*secrets*' '.env*' | Không trả về file nào; các tệp cục bộ/bí mật đã kiểm tra không được theo dõi trong Git. |
 
-### Rui ro va tieu chi nghiem thu
+### Điều kiện nghiệm thu và việc còn lại
 
-- Build, unit test, instrumented test tren emulator va mo APK tren emulator deu da xac minh thuc te.
-- Dieu kien A-01 **chua dat day du**: backlog yeu cau mo APK tren dien thoai that, nhung ADB hien khong co dien thoai online. Can ket noi lai dien thoai va cai/mo APK de dong A-01.
-- Chi co bo test mau mac dinh; chua co test tinh nang. Khong chay tren API 31/33 trong lan nay; system image san co la API 37.
-- Build co canh bao thu vien `libandroidx.graphics.path.so` khong strip duoc nen duoc dong goi nguyen; khong lam build that bai. Instrumentation co canh bao deprecated API tu protobuf; test van PASS.
-- Khong tao Room, navigation hay man hinh san pham; cac phan nay nam ngoai A-01. Khong co API key hoac release keystore duoc them vao repository.
+- Build debug và test trên emulator đã được chạy lại trong lượt này; các kết quả trên là thực tế. Bộ unit/instrumentation hiện tại chỉ là test mẫu, không chứng minh tính năng ứng dụng.
+- APK đã cài và mở trên emulator API 37. Tiêu chí A-01 yêu cầu mở trên điện thoại thật; chưa đạt vì không có điện thoại vật lý online trong ADB. Vì vậy A-01 **chưa đạt đầy đủ**.
+- Lint có 10 cảnh báo mức warning nhưng không có lỗi; chưa nâng dependency chỉ để loại bỏ gợi ý phiên bản mới.
+- A-02 chưa triển khai. Đề xuất sau khi hoàn tất smoke test trên điện thoại thật: A-02, tạo khung điều hướng và sáu màn hình theo backlog. Sau đó A-03 cần được ưu tiên để thiết lập schema Room và migration an toàn trước tính năng dữ liệu.

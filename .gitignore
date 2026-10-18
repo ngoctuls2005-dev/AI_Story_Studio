@@ -5,6 +5,7 @@ local.properties
 
 # Gradle va san pham build
 .gradle/
+.kotlin/
 .gradle-user-home/
 **/build/
 /build/
