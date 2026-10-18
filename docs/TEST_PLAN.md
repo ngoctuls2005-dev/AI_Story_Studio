@@ -22,6 +22,20 @@ Kế hoạch bao phủ nền tảng A-01 và các luồng V1.0 được nêu tro
 
 Kết quả theo từng lần chạy, kể cả trạng thái thiết bị thật, được lưu tại docs/TASK_LOG.md.
 
+## Kiểm thử A-02 — giao diện và điều hướng
+
+| Loại | Kịch bản | Kết quả cần xác nhận |
+|---|---|---|
+| Instrumentation Compose | Mở lần lượt `home`, `roleplay`, `novel`, `characters`, `library`, `settings` qua thanh điều hướng | Mỗi màn có marker hiển thị; không crash. |
+| Instrumentation Compose | Mở Roleplay rồi gọi system Back | Trở lại Home. |
+| Instrumentation Compose | Chọn Library rồi tạo lại Activity | Library vẫn được chọn. |
+| Instrumentation Compose | Chọn Novel, chuyển Activity xuống CREATED rồi RESUMED | Novel vẫn được chọn. |
+| Instrumentation Compose | Đổi theme state từ sáng sang tối với dynamic color tắt | Màu nền hai theme khác nhau. |
+| Smoke thủ công | Cài và mở APK, chuyển sang Novel, bấm Home rồi mở lại Activity | Nội dung Novel hiện lại; không crash. |
+| Responsive thủ công | Chụp màn hình ở viewport điện thoại và viewport rộng | Thanh dưới dùng ở màn hình hẹp, Navigation Rail dùng ở màn hình rộng; nội dung không tràn ngang. |
+
+Kết quả A-02 hiện có trên AVD Medium Phone API 37; đây là bằng chứng emulator, không thay thế yêu cầu smoke trên điện thoại thật của A-01. Các màn hình chưa có trường nhập liệu nên kiểm thử che bàn phím chưa áp dụng; shell đã cấu hình `imePadding` và Activity dùng `adjustResize` để hỗ trợ khi các trường nhập liệu được bổ sung.
+
 ## Quy trình A-01
 
 1. Kiểm tra git status, backlog, local.properties và các file secret để bảo đảm không stage dữ liệu cục bộ.

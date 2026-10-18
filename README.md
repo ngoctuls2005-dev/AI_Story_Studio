@@ -1,6 +1,6 @@
 # AI Story Studio
 
-Ứng dụng Android cá nhân phát triển bằng Kotlin và Jetpack Compose. Dự án đang ở nền tảng A-01; màn hình hiện tại là scaffold mẫu, chưa có tính năng Roleplay, Novel, Room hay kết nối AI.
+Ứng dụng Android cá nhân phát triển bằng Kotlin và Jetpack Compose. A-02 đã tạo theme Material 3 sáng/tối, khung điều hướng và sáu màn hình Home, Roleplay, Novel, Characters, Library, Settings. Các màn tính năng hiện là khung giao diện; chưa có chat thực tế, editor, Room hay kết nối AI.
 
 ## Tài liệu dự án
 

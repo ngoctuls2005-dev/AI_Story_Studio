@@ -60,3 +60,12 @@ Các quyết định dưới đây ghi lại hướng thiết kế dựa trên p
 - **Trạng thái:** applicationId hiện tại được giữ; khóa release thuộc D-06.
 - **Quyết định:** dùng com.hoangtu.aistorystudio ổn định; keystore release lưu ngoài repository và giữ cùng certificate giữa các bản.
 - **Lý do:** cập nhật APK cần cùng ID/chứng chỉ và versionCode tăng để cài đè mà giữ app data.
+
+## ADR-010 — Một NavHost với trạng thái riêng cho sáu đích chính
+
+- **Trạng thái:** đã triển khai trong A-02.
+- **Quyết định:** dùng Navigation Compose với một `NavHost`; điều hướng đích chính lưu và khôi phục back stack bằng `saveState`, `restoreState` và `launchSingleTop`. Back hệ thống tiếp tục dùng hành vi back stack của Navigation.
+- **Lý do:** giữ trạng thái màn khi chuyển giữa Roleplay, Novel và các khu vực khác, đồng thời tránh tạo thêm bản sao đích chính khi người dùng nhấn lặp.
+- **Hiển thị thích ứng:** dùng NavigationBar ở màn hình hẹp và NavigationRail từ 600 dp; nội dung có chiều rộng tối đa 840 dp. Theme theo cài đặt sáng/tối hệ thống và dùng màu động trên Android 12 trở lên.
+- **Kiểm chứng:** instrumentation test sáu đích, Back, tạo lại Activity, nền/quay lại và hai bảng màu; smoke điện thoại thật vẫn thuộc phần còn thiếu của A-01.
+- **Giới hạn:** sáu màn hình A-02 hiện là khung giao diện; ViewModel, dữ liệu và hành vi sản phẩm sẽ được triển khai trong task tương ứng.

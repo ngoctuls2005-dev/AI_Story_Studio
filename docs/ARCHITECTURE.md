@@ -6,8 +6,10 @@
 ## Hiện trạng dự án
 
 - Dự án hiện có một Gradle module Android tên :app, Kotlin và Jetpack Compose với Material 3.
-- Mã giao diện hiện tại là màn hình Compose mẫu. Chưa có Navigation, ViewModel theo feature, Room, DataStore, OkHttp/SSE, kho bí mật hay tính năng Roleplay/Novel.
-- A-01 đã xác nhận build được trên cấu hình hiện tại. Mở APK trên điện thoại thật vẫn cần kiểm tra lại vì thiết bị ADB trước đó ở trạng thái offline.
+- A-02 đã thêm Compose Navigation, theme Material 3 sáng/tối, thanh điều hướng thích ứng và sáu màn hình khung. Các màn Roleplay, Novel, Characters, Library và Settings hiện chỉ hiển thị trạng thái rỗng/thông tin; chưa có nghiệp vụ sản phẩm.
+- Navigation nằm trong `core.navigation`; thành phần giao diện dùng chung ở `core.ui`; từng màn hình thuộc package `feature.*`. UI hiện chưa có ViewModel theo feature.
+- Room, DataStore, OkHttp/SSE, kho bí mật và tính năng chat/soạn thảo thực tế chưa được triển khai.
+- A-01 đã xác nhận build được trên cấu hình hiện tại. Smoke test trên điện thoại thật vẫn còn thiếu vì ADB chỉ có emulator API 37; xem docs/TASK_LOG.md.
 
 ## Nguyên tắc
 
