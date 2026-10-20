@@ -405,6 +405,7 @@ Trong các lượt trung gian, runner phát hiện assertion A-05 giả định 
 
 - `adb shell am start -W -n com.hoangtu.aistorystudio/.MainActivity` trả `Status: ok`, `Activity: com.hoangtu.aistorystudio/.MainActivity`; `LaunchState: COLD` ở lần mở đầu.
 - Dùng thanh điều hướng trên điện thoại và xác minh tiêu đề bằng cây giao diện: Trang chủ, Nhập vai, Tiểu thuyết, Nhân vật, Thư viện, Cài đặt — cả 6/6 tiêu đề xuất hiện sau khi chọn.
+- Quan sát trực quan: nhãn mục điều hướng “Tiểu thuyết” bị rút gọn trên màn hình điện thoại này; thao tác chọn vẫn mở đúng màn Tiểu thuyết. Không sửa giao diện trong lượt chỉ hoàn tất smoke test A-01.
 - Chọn Nhập vai → đưa app xuống nền bằng `KEYCODE_HOME` → mở lại bằng ADB. Màn Nhập vai vẫn được hiển thị. Nhấn `KEYCODE_BACK` từ Nhập vai trở về Trang chủ.
 - Quét `adb logcat -d -v threadtime -t 4000`: 0 khối fatal gắn với package ứng dụng, 0 mục ANR gắn với package; tiến trình ứng dụng còn sống (`pidof` trả PID). Không chạy instrumentation test trên điện thoại thật.
 - `uiautomator dump` trên MIUI in stack trace thiếu `theme_compatibility.xml` nhưng vẫn tạo XML; tiêu đề các màn hình đọc được. Đây là lỗi của công cụ dump/ROM, không phải lỗi tiến trình ứng dụng. Lượt kiểm tra logcat đầu dùng tên biến PowerShell `$pid` chỉ đọc; đã chạy lại bằng `$appProcessId` và nhận kết quả nêu trên.
