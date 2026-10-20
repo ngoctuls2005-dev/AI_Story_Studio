@@ -381,3 +381,38 @@ Trong các lượt trung gian, runner phát hiện assertion A-05 giả định 
 - Sáu keystore PKCS12 kiểm thử được tạo một lần dưới `C:\jtmp`, ngoài repository; password ngẫu nhiên chỉ tồn tại tạm trong process, không được lưu/in. Chúng không phải khóa production. Lệnh dọn các tệp kiểm thử bị tool safety policy chặn nên tệp mã hóa còn tại đó; có thể xóa thủ công sau khi xác nhận đúng tên test-only.
 - Physical-device smoke test BLOCKED vì ADB chỉ thấy emulator. A-01 tiếp tục đạt một phần; D-06 không thay thế điều kiện đó.
 - D-06 hạ tầng ký/update đã được kiểm chứng trên AVD, nhưng trạng thái tổng thể là **đạt một phần** cho đến khi có khóa production và bản sao lưu thật. Không làm D-07, C-01 hoặc task khác.
+
+## A-01 — Smoke test bổ sung trên điện thoại thật — 20/10/2026
+
+### Phạm vi và tiền kiểm
+
+- Đọc `AGENTS.md`, toàn bộ `docs/BACKLOG_V1.md` và `docs/TASK_LOG.md`. Tiêu chí A-01 trong backlog: `assembleDebug` thành công, APK mở trên điện thoại thật, không commit `local.properties`, API key hoặc `.jks`. Chỉ chạy smoke test A-01; không sửa tính năng ứng dụng.
+- Git trước khi ghi kết quả sạch trên `main`, HEAD `2e4adc2` (checkpoint D-06), nhánh local ahead `origin/main` 4 commit. Không push.
+- Dùng ADB trong Android SDK tại `%LOCALAPPDATA%\Android\Sdk\platform-tools\adb.exe` với serial `101819060506`. ADB `37.0.1-15733141`; thiết bị trả `device`, `sys.boot_completed=1`, model `21061119AG`, product `selene`, Android 13, API 33. `adb` chưa có trong `PATH`; gọi trực tiếp ADB của SDK.
+- Gói `com.hoangtu.aistorystudio` đã cài trước đó, `versionCode=1`, `firstInstallTime=2026-10-18 23:29:39`. `run-as` hoạt động. Tiền kiểm chỉ đếm mục ở thư mục riêng tư, không đọc nội dung: `databases` không có/không truy cập được, `shared_prefs` 0 mục, `files` 1 mục.
+
+### Build, đối chiếu chữ ký và cài đặt
+
+| Lệnh / kiểm tra | Kết quả quan sát |
+|---|---|
+| `.\gradlew.bat assembleDebug --console=plain` | PASS — `BUILD SUCCESSFUL`, 37 actionable tasks đều `UP-TO-DATE`; APK hiện tại tại `app/build/outputs/apk/debug/app-debug.apk`. |
+| `aapt dump badging` | PASS — package `com.hoangtu.aistorystudio`, `versionCode=1`, `versionName=1.0`, `compileSdkVersion=37`. |
+| `apksigner verify --print-certs` | PASS — APK mới và APK đã cài đều xác minh được; SHA-256 chứng chỉ giống nhau: `fd16e9b6fea51fa047810bb1a959a81cb4c1f8e58015f9aac09081fc8da712ff`. SHA-256 APK mới: `E522B695BC5F67272D9BAC29B6DB0B5969B38E6332EFB89B7DF3555CBEA4E29D`. |
+| `adb -s 101819060506 install -r app/build/outputs/apk/debug/app-debug.apk` | PASS — ADB trả `Success`. Không chạy `adb uninstall` hoặc `pm clear`. Sau cập nhật, `firstInstallTime` vẫn giữ nguyên và `lastUpdateTime=2026-10-20 13:41:04`; `versionCode=1`. |
+| Đếm lại mục dữ liệu riêng tư | Sau khi mở app: `databases` không có/không truy cập được, `shared_prefs` 0 mục, `files` 2 mục. Số mục `files` không giảm. Không so sánh byte nội dung; không đưa nội dung riêng tư vào log. Cài cập nhật dùng cùng chữ ký và `install -r`, không gỡ/cài mới. |
+
+### Smoke test giao diện và vòng đời
+
+- `adb shell am start -W -n com.hoangtu.aistorystudio/.MainActivity` trả `Status: ok`, `Activity: com.hoangtu.aistorystudio/.MainActivity`; `LaunchState: COLD` ở lần mở đầu.
+- Dùng thanh điều hướng trên điện thoại và xác minh tiêu đề bằng cây giao diện: Trang chủ, Nhập vai, Tiểu thuyết, Nhân vật, Thư viện, Cài đặt — cả 6/6 tiêu đề xuất hiện sau khi chọn.
+- Chọn Nhập vai → đưa app xuống nền bằng `KEYCODE_HOME` → mở lại bằng ADB. Màn Nhập vai vẫn được hiển thị. Nhấn `KEYCODE_BACK` từ Nhập vai trở về Trang chủ.
+- Quét `adb logcat -d -v threadtime -t 4000`: 0 khối fatal gắn với package ứng dụng, 0 mục ANR gắn với package; tiến trình ứng dụng còn sống (`pidof` trả PID). Không chạy instrumentation test trên điện thoại thật.
+- `uiautomator dump` trên MIUI in stack trace thiếu `theme_compatibility.xml` nhưng vẫn tạo XML; tiêu đề các màn hình đọc được. Đây là lỗi của công cụ dump/ROM, không phải lỗi tiến trình ứng dụng. Lượt kiểm tra logcat đầu dùng tên biến PowerShell `$pid` chỉ đọc; đã chạy lại bằng `$appProcessId` và nhận kết quả nêu trên.
+- APK cài đặt có SHA-256 nêu trên. Kiểm tra Git: không có đường dẫn nhạy cảm được theo dõi (`local.properties`, keystore, `.env`, secrets); tìm mẫu khóa phổ biến `sk-...` và Google API key trả 0 tệp. Không thấy `local.properties`, API key hoặc `.jks` trong file Git được theo dõi.
+
+### Kết luận và giới hạn
+
+- Theo tiêu chí backlog A-01, smoke test điện thoại thật đã đạt: build debug thành công, package đúng chữ ký được cập nhật bằng `install -r`, app mở được và các màn hình yêu cầu hiển thị; không phát hiện crash/ANR trong lần kiểm tra này. A-01 **PASS**.
+- Việc kiểm tra bảo toàn dữ liệu không đọc nội dung hoặc đối chiếu hash từng file; bằng chứng là cùng chữ ký, `install -r`, `firstInstallTime` không đổi và số mục `files` không giảm. Không tuyên bố kiểm chứng byte-for-byte.
+- Ảnh chụp giao diện tạm được lưu trong `app/build/a01-device-preflight/screen-home.png` (đường dẫn bị Git ignore); ảnh có banner thông báo hệ thống cá nhân nên không được thêm vào tài liệu/Git. Yêu cầu xóa artifact tạm bị công cụ thực thi chặn; file hiện vẫn nằm cục bộ. XML hierarchy và APK đã pull vào cùng thư mục build cũng là artifact ignored.
+- Không chạy unit/instrumentation regression trong lượt này; đã thực hiện đúng build và smoke test A-01. Không triển khai nhiệm vụ khác.
