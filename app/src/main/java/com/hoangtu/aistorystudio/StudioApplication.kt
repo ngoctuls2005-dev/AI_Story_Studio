@@ -4,9 +4,11 @@ import android.app.Application
 import com.hoangtu.aistorystudio.core.ai.settings.DataStoreAiProviderSettingsRepository
 import com.hoangtu.aistorystudio.core.database.StudioDatabase
 import com.hoangtu.aistorystudio.core.database.repository.RoomCharacterRepository
+import com.hoangtu.aistorystudio.core.database.repository.RoomConversationRepository
 import com.hoangtu.aistorystudio.core.datastore.aiProviderDataStore
 import com.hoangtu.aistorystudio.core.security.AndroidKeyStoreSecureKeyStore
 import com.hoangtu.aistorystudio.feature.characters.CharacterManagementViewModel
+import com.hoangtu.aistorystudio.feature.roleplay.RoleplayViewModel
 import com.hoangtu.aistorystudio.feature.settings.SettingsViewModelFactory
 
 class StudioApplication : Application() {
@@ -16,8 +18,16 @@ class StudioApplication : Application() {
         RoomCharacterRepository(studioDatabase.characterDao())
     }
 
+    val conversationRepository: RoomConversationRepository by lazy {
+        RoomConversationRepository(studioDatabase, studioDatabase.conversationDao())
+    }
+
     val characterViewModelFactory: CharacterManagementViewModel.Factory by lazy {
         CharacterManagementViewModel.Factory(characterRepository)
+    }
+
+    val roleplayViewModelFactory: RoleplayViewModel.Factory by lazy {
+        RoleplayViewModel.Factory(conversationRepository, characterRepository)
     }
 
     val aiProviderSettingsRepository: DataStoreAiProviderSettingsRepository by lazy {

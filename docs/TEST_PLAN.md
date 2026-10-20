@@ -160,6 +160,23 @@ Trước A-06, Gradle từng hoàn tất với report 0 test khi Gradle worker v
 | Compose UI | Tạo, xem đầy đủ, sửa, xác nhận xóa, tìm theo tên và validation | Compose test trên emulator với in-memory Room; không truy vấn DAO trong Composable. |
 | Khởi động lại | Seed database test riêng → force-stop app → mở lại → verify → cleanup | AndroidJUnitRunner trên emulator; database có tên fixture ngẫu nhiên, không chạm DB người dùng. |
 
+## Kiểm thử C-02 — danh sách hội thoại và lịch sử tin nhắn
+
+Instrumentation dùng in-memory Room fixture với hai Character, hai Persona, ba hội thoại và tối thiểu hai message cho mỗi hội thoại. Bài process-restart dùng database có tên `c02_restart_<UUID>.db` trong app-private storage; seed → force-stop → mở launcher process mới → verify → cleanup. Không dùng database production và không xóa app data.
+
+| Loại | Kịch bản | Bằng chứng/assertion |
+|---|---|---|
+| Repository/Room | Tạo và truy vấn ba hội thoại độc lập | Mỗi ID trả đúng tin nhắn; message role/status/content/Unicode còn nguyên; hai hội thoại khác không xuất hiện. |
+| Thứ tự | Tạo các message có cùng `createdAt` | Repository trả `sequence ASC, id ASC`; unique sequence theo hội thoại vẫn được giữ. |
+| Tìm kiếm | Tìm theo tiêu đề, tên Character và Persona | Chỉ trả hội thoại phù hợp; danh sách được sắp `updated_at DESC, created_at DESC, id ASC`. |
+| Owner/Persona | Generic save thử đổi Character hoặc Persona sau khi tạo | Repository từ chối và hàng gốc không đổi; tạo mới dùng đúng selection, không sửa các cuộc hội thoại cũ. |
+| Foreign key/transaction | Tạo hội thoại trỏ tới Character/Persona thiếu hoặc trùng ID | Room từ chối; không có hàng dở dang và không ghi đè cuộc hội thoại hiện hữu. |
+| Hoạt động/xóa | Thêm message mới; xác nhận xóa một hội thoại | `updated_at` không giảm; xóa chỉ cascade message của owner đã chọn, các owner khác còn nguyên. |
+| Compose/Navigation | Tìm, mở lịch sử, tạo hội thoại với Character/Persona, Back hệ thống, xác nhận/hủy xóa | Nested route mở đúng ID, back quay về danh sách, list và Persona cũ giữ nguyên; UI không có composer AI trong C-02. |
+| Khởi động lại | Seed ba hội thoại và nhiều message vào DB fixture → force-stop → launcher → verify → cleanup | Số lượng, liên kết, Unicode, scope và sequence sau process mới bằng fixture trước đó. |
+
+Lệnh hồi quy trên Windows: `.\scripts\test-all.ps1 -DeviceSerial emulator-5554`. Script chỉ chấp nhận emulator và chạy AndroidJUnitRunner trực tiếp bằng `adb -s`; không dùng `connectedDebugAndroidTest`, `uninstall` hoặc `pm clear`. C-02 không đổi schema V2 và không tạo migration mới.
+
 ## Test dữ liệu và migration
 
 - Dùng fixture riêng, định danh ổn định, không dựa vào DB thật của người dùng.

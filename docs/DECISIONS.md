@@ -106,3 +106,11 @@ Các quyết định dưới đây ghi lại hướng thiết kế và trạng t
 - **Kiểm chứng:** `scripts/test-release-upgrade.ps1` chạy trên emulator sạch, kiểm tra `apksigner`, package ID, fingerprint, version code và fixture app-private qua `adb install -r`; không uninstall hay xóa dữ liệu.
 - **Release optimization:** R8 được giữ tắt cho release đến khi có kiểm thử runtime riêng. Bật optimization trước đó làm APK release crash trên AVD (`IllegalAccessError` trong `kotlin.sequences`); thêm `android.r8.gradual.support` không loại bỏ lỗi. Sau khi tắt optimization, APK V2 mở được và instrumentation chạy thành công. Chỉ bật lại sau khi smoke test release trên thiết bị/emulator xác nhận hoạt động.
 - **Giới hạn:** chưa có khóa production do người dùng kiểm soát; D-06 chỉ được đóng hoàn toàn sau khi người dùng tạo khóa, sao lưu ở vị trí thứ hai và xác nhận có thể dùng cục bộ. Test tạm không phải khóa phát hành.
+
+## ADR-015 — Cô lập hội thoại và lịch sử ở C-02
+
+- **Trạng thái:** đã áp dụng; kiểm thử trên emulator API 37.
+- **Quyết định:** mỗi hội thoại mới nhận UUID và được tạo bằng `INSERT` trong transaction. Character và Persona liên kết lúc tạo được giữ cố định qua API `saveConversation` chung; đổi liên kết cần API/luồng xác nhận tường minh trong task tương lai. Xóa hội thoại chỉ qua thao tác xác nhận giao diện; Room CASCADE xóa message con.
+- **Lịch sử:** truy vấn nội dung luôn lọc theo `conversationId`; thứ tự là `sequence ASC, id ASC` để không phụ thuộc timestamp trùng nhau. `updated_at` tăng theo thời điểm message mới hơn nhưng không giảm khi timestamp đến muộn.
+- **Hiển thị và tìm kiếm:** Room join tên Character/Persona hiện tại để dựng danh sách và lọc tiêu đề/tên; khóa liên kết được giữ nguyên, nên đổi hồ sơ nhân vật không chuyển hội thoại sang owner khác.
+- **Schema:** C-02 không thêm trường hoặc bảng; schema V2 đã có `persona_id`, message sequence, FK và index phù hợp. Không tăng Room version và không tạo migration giả.

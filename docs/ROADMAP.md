@@ -15,6 +15,8 @@
 | A-05 — cấu hình provider và API key | Hoàn thành trên AVD API 37 | Settings/DataStore/Android Keystore AES-256-GCM; unit test, UI/Keystore/backup instrumentation và process restart test đạt. Tài liệu/bằng chứng chi tiết trong TASK_LOG.md. Không có kết nối API thật. |
 | A-06 — test harness | Hoàn thành trên AVD API 37 | MockWebServer loopback, fixture chung, script build/unit/lint/instrumentation có kiểm tra số test; unit offline 27/27, regression instrumentation hiện tại 19/19 (gồm fixture D-06 mới), lint 0 lỗi. Gradle runner được chẩn đoán; runner trực tiếp là mặc định để giữ app data. Chi tiết và giới hạn trong TASK_LOG.md. |
 | D-06 — release signing và cập nhật APK | Hạ tầng đã xác minh; khóa production còn thiếu | Release V1→V2 đạt trên AVD API 37 bằng keystore dùng một lần: cùng applicationId/chứng chỉ, versionCode 1→2, `adb install -r` giữ fixture. Khóa production và bản sao lưu ở vị trí thứ hai phải do người dùng tự tạo trước release đầu. R8 release tạm tắt sau khi APK tối ưu crash trên AVD; cần kiểm thử riêng trước khi bật lại. |
+| C-01 — nhân vật và Persona | Đạt một phần | CRUD và lưu bền vững đã kiểm thử trên AVD. Điều kiện “prompt không tự sửa hồ sơ gốc” vẫn deferred đến khi có prompt/context consumer; không tính PASS. |
+| C-02 — hội thoại và lịch sử | Hoàn thành trên emulator API 37 | Danh sách/tìm/tạo/mở/xóa có xác nhận, Persona/Character không bị đổi ngầm, message scope/order và process restart được kiểm thử. Chưa có Chat composer hoặc phản hồi AI; thuộc các task sau. |
 
 ## Trình tự đề xuất
 

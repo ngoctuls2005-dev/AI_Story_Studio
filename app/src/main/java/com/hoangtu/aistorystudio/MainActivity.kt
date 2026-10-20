@@ -6,6 +6,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.lifecycle.ViewModelProvider
 import com.hoangtu.aistorystudio.feature.characters.CharacterManagementViewModel
+import com.hoangtu.aistorystudio.feature.roleplay.RoleplayViewModel
 import com.hoangtu.aistorystudio.feature.settings.SettingsViewModel
 import com.hoangtu.aistorystudio.core.navigation.StudioApp
 import com.hoangtu.aistorystudio.ui.theme.AIStoryStudioTheme
@@ -22,9 +23,13 @@ class MainActivity : ComponentActivity() {
             this,
             (application as StudioApplication).characterViewModelFactory
         )[CharacterManagementViewModel::class.java]
+        val roleplayViewModel = ViewModelProvider(
+            this,
+            (application as StudioApplication).roleplayViewModelFactory
+        )[RoleplayViewModel::class.java]
         setContent {
             AIStoryStudioTheme {
-                StudioApp(settingsViewModel, characterViewModel)
+                StudioApp(settingsViewModel, characterViewModel, roleplayViewModel)
             }
         }
     }

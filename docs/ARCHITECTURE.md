@@ -13,6 +13,7 @@
 - A-04 bổ sung abstraction `core.ai.AiProvider` nhận danh sách message trung lập với provider/model và trả `Flow<AiStreamEvent>`. `FakeAiProvider` dùng fixture offline; chưa có provider mạng, cấu hình endpoint hay kết nối từ UI.
 - A-01 đã đạt theo smoke test trên điện thoại Xiaomi Android 13/API 33 ngày 20/10/2026; xem bằng chứng, phạm vi so sánh dữ liệu và giới hạn trong `docs/TASK_LOG.md`.
 - C-01 thêm CRUD nhân vật/Persona, validation tuổi trưởng thành, chọn Persona mặc định lưu trong Room, xử lý xóa bị FK RESTRICT chặn và tìm theo tên. Các luồng chat, memory retrieval/Context Builder, backup và autosave chưa triển khai.
+- C-02 thêm danh sách/tìm kiếm hội thoại, tạo hội thoại có Character/Persona cố định, màn lịch sử chỉ đọc và nested Navigation route. Message history luôn truy vấn theo `conversationId`, sắp xếp `sequence, id`; chưa có composer, AI response hay streaming.
 
 ## Nguyên tắc
 
@@ -74,6 +75,7 @@ Không tạo sẵn package rỗng chỉ để khớp sơ đồ. Tạo từng ph�
 - **ViewModel:** chuyển intent thành lời gọi Use Case; công bố StateFlow. Hủy stream theo lifecycle hoặc thao tác Stop.
 - **Use Case:** điều phối quy tắc, transaction cần thiết, Context Builder và luồng AI. Không chứa chi tiết Compose, SQL hay HTTP.
 - **Repository:** domain khai báo interface; data cung cấp implementation. DAO chỉ được gọi qua repository/use case.
+- **Roleplay C-02:** tạo hội thoại bằng UUID và `INSERT` trong Room transaction; không dùng upsert khi tạo. Generic save không cho đổi Character/Persona của hội thoại đã tồn tại. Danh sách join tên Character/Persona để hiển thị/tìm kiếm; mỗi query tin nhắn bắt buộc nhận một `conversationId` và trả thứ tự `sequence ASC, id ASC`. Ghi tin nhắn cập nhật `updated_at` theo giá trị lớn nhất giữa thời gian hoạt động cũ và mới.
 - **Room hiện tại:** `StudioDatabase` version 2, export schema bật; schema V1 còn trong Git và có migration V1→V2 có tên cùng test dữ liệu cũ. Các lệnh DAO one-shot dùng `suspend`, truy vấn quan sát dùng `Flow`. Không cấu hình destructive fallback.
 - **Repository hiện tại:** bốn nhóm repository bọc DAO; `withTransaction` bảo vệ tạo hội thoại/message đầu, thêm message theo sequence, cấp số thứ tự novel và cập nhật summary. Memory chỉ chấp nhận đúng một owner, và repository chặn việc đổi owner của memory/message/summary.
 - **Xóa dữ liệu:** hội thoại được tham chiếu bởi hồ sơ/persona dùng `RESTRICT`; con của hội thoại/chapter/project dùng `CASCADE`; liên kết Novel-character bị xóa cùng project hoặc character. Xóa project xóa toàn bộ nội dung con của project. Xóa nhân vật đang được hội thoại tham chiếu bị từ chối. Memory fact được đánh dấu tombstone bằng `deleted_at`; truy vấn thông thường bỏ qua fact đã xóa.

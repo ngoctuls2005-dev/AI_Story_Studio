@@ -21,6 +21,8 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
+import androidx.navigation.NavType
+import androidx.navigation.navArgument
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
@@ -31,17 +33,25 @@ import com.hoangtu.aistorystudio.feature.home.HomeScreen
 import com.hoangtu.aistorystudio.feature.library.LibraryScreen
 import com.hoangtu.aistorystudio.feature.novel.NovelScreen
 import com.hoangtu.aistorystudio.feature.roleplay.RoleplayScreen
+import com.hoangtu.aistorystudio.feature.roleplay.ConversationHistoryScreen
+import com.hoangtu.aistorystudio.feature.roleplay.RoleplayViewModel
 import com.hoangtu.aistorystudio.feature.settings.SettingsScreen
 import com.hoangtu.aistorystudio.feature.settings.SettingsViewModel
 
 @Composable
 fun StudioApp(
     settingsViewModel: SettingsViewModel,
-    characterViewModel: CharacterManagementViewModel
+    characterViewModel: CharacterManagementViewModel,
+    roleplayViewModel: RoleplayViewModel
 ) {
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
-    val currentRoute = backStackEntry?.destination?.route ?: StudioDestination.HOME.route
+    val destinationRoute = backStackEntry?.destination?.route ?: StudioDestination.HOME.route
+    val currentRoute = if (destinationRoute.startsWith("roleplay/history/")) {
+        StudioDestination.ROLEPLAY.route
+    } else {
+        destinationRoute
+    }
 
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val useNavigationRail = maxWidth >= 600.dp
@@ -75,6 +85,9 @@ fun StudioApp(
                     navController = navController,
                     settingsViewModel = settingsViewModel,
                     characterViewModel = characterViewModel,
+                    roleplayViewModel = roleplayViewModel,
+                    onOpenConversation = { id -> navController.navigate("roleplay/history/$id") },
+                    onBackFromConversation = { navController.popBackStack() },
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxHeight()
@@ -150,6 +163,9 @@ private fun StudioNavHost(
     navController: NavHostController,
     settingsViewModel: SettingsViewModel,
     characterViewModel: CharacterManagementViewModel,
+    roleplayViewModel: RoleplayViewModel,
+    onOpenConversation: (String) -> Unit,
+    onBackFromConversation: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     NavHost(
@@ -162,9 +178,22 @@ private fun StudioNavHost(
         }
         composable(StudioDestination.ROLEPLAY.route) {
             RoleplayScreen(
+                viewModel = roleplayViewModel,
                 onOpenCharacters = {
                     navController.navigateToTopLevel(StudioDestination.CHARACTERS)
-                }
+                },
+                onOpenConversation = onOpenConversation
+            )
+        }
+        composable(
+            route = "roleplay/history/{conversationId}",
+            arguments = listOf(navArgument("conversationId") { type = NavType.StringType })
+        ) { entry ->
+            val conversationId = entry.arguments?.getString("conversationId").orEmpty()
+            ConversationHistoryScreen(
+                viewModel = roleplayViewModel,
+                conversationId = conversationId,
+                onBack = onBackFromConversation
             )
         }
         composable(StudioDestination.NOVEL.route) {

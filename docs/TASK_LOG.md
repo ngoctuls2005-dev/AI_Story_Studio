@@ -471,3 +471,42 @@ Trong các lượt trung gian, runner phát hiện assertion A-05 giả định 
 - **C-01 đạt phần triển khai và kiểm thử quản lý dữ liệu, nhưng chưa đóng đầy đủ tiêu chí backlog.** Tiêu chí “prompt không tự sửa hồ sơ gốc” chưa thể kiểm chứng vì chưa có prompt/context consumer; A-04 cũng đã ghi nhận Chat UI/Novel Editor chưa tồn tại. Không thêm Chat UI hoặc ContextBuilder trong C-01 để tạo bằng chứng giả. Cần kiểm tra lại tính bất biến hồ sơ khi có prompt/context consumer thuộc task phù hợp.
 - Không kiểm thử instrumentation trên điện thoại cá nhân; không thay đổi dữ liệu ứng dụng trên điện thoại. Không nâng AGP, Gradle, Kotlin, SDK hoặc thư viện.
 - Checkpoint Git cục bộ được tạo sau rà soát diff; không push.
+
+## C-02 — Quản lý hội thoại và lịch sử tin nhắn — 20/10/2026
+
+### Kiểm tra trước khi triển khai
+
+- Đọc đầy đủ `AGENTS.md`, backlog, architecture, decisions, roadmap, test plan, task log và Git workflow. Backlog C-02 nghiệm thu ba chat thuộc hai nhân vật không lẫn tin nhắn, thứ tự ổn định và mở lại đúng lịch sử; prompt bổ sung yêu cầu chọn Persona, tìm kiếm, tạo/mở/xóa xác nhận và process restart.
+- Trạng thái Git đầu lượt: working tree sạch, `main` tại `eb5f38a` (checkpoint C-01), ahead `origin/main` 7 commit; remote là repository AI Story Studio. Schema export V1 và V2 có trong Git, `StudioDatabase.VERSION=2`; không có schema/migration C-02 cần thêm.
+- A-01 đã PASS theo smoke test trên Xiaomi Android 13/API 33, được ghi ở phần A-01 phía trên. C-01 vẫn đạt một phần: tiêu chí “prompt không tự sửa hồ sơ gốc” được giữ deferred đến khi có prompt/context consumer; không tuyên bố đạt tiêu chí này.
+- Môi trường: JDK/Gradle daemon 25, Gradle Wrapper 9.6.0, Android SDK 37, ADB 37.0.1; `emulator-5554` là emulator API 37. Không chạy instrumentation trên điện thoại cá nhân.
+- Chia C-02 thành: (1) rà Room V2 và bảo đảm sequence/scope; (2) bổ sung truy vấn header/tìm kiếm và tạo insert transaction; (3) thêm Use Cases/ViewModel; (4) nối Roleplay list, tạo hội thoại và nested history route; (5) thêm fixture Room/Compose/process restart; (6) hồi quy, ghi bằng chứng, security review và checkpoint.
+
+### Thay đổi
+
+- Không thay Room schema V2. `ChatMessageEntity.sequence` và unique index theo `(conversation_id, sequence)` đã có; query lịch sử tiếp tục giới hạn theo `conversationId` và sắp `sequence ASC, id ASC`.
+- Thêm `ConversationHeader` projection, DAO query join tên Character/Persona, search title/character/persona và thứ tự danh sách xác định. `createConversation` dùng UUID từ use case, `INSERT` trong transaction để trùng ID/FK không upsert đè dữ liệu.
+- Generic `saveConversation` giữ cố định Character và Persona đã gắn; thử đổi owner/Persona bị từ chối. Thêm cập nhật `updated_at` đơn điệu khi lưu message, dùng `MAX` để timestamp cũ đến muộn không làm lùi hoạt động gần nhất.
+- Thêm `ConversationManagementUseCases`, `RoleplayViewModel` với StateFlow, loading/error/retry, selection Character/Persona, xác nhận xóa và quan sát header/message. Lỗi cancellation được ném lại; UI không gọi DAO.
+- Màn Roleplay hiển thị danh sách/tìm/empty state; tạo hội thoại chọn Character/Persona; route lịch sử lồng trong Roleplay hiển thị message chỉ đọc theo sequence, status và thời gian. System Back quay lại danh sách; tab Roleplay vẫn được chọn. Không có composer, request AI, streaming, retry hoặc regenerate.
+- `Test-Common.ps1` chạy thêm pha process restart C-02 bằng database fixture UUID riêng: seed → force-stop app → launcher → verify → cleanup. Không dùng DB production, `uninstall` hoặc `pm clear`.
+- Cập nhật `docs/ARCHITECTURE.md`, ADR-015 trong `docs/DECISIONS.md`, trạng thái C-02 và giới hạn C-01 trong `docs/ROADMAP.md`, cùng ma trận kiểm thử C-02 trong `docs/TEST_PLAN.md`.
+
+### Build và kiểm thử cuối cùng
+
+| Lệnh/kịch bản | Kết quả quan sát |
+|---|---|
+| `scripts/test-all.ps1 -DeviceSerial emulator-5554` | PASS — pipeline hoàn tất exit 0; harness guard pass, assembleDebug/unit/lint/instrumentation và process restart đều đạt. Run ID `20261020-143150-701` (build/unit/lint), instrumentation `20261020-143353-843`. |
+| Gradle `:app:assembleDebug :app:testDebugUnitTest :app:lintDebug --rerun-tasks --no-daemon --console=plain` | PASS — `BUILD SUCCESSFUL`, 53 tasks executed; 29 unit test, 0 failure/error/skip. Lint: 0 error, 15 warning. Log `app/build/reports/a06/20261020-143150-701-all-build-unit-lint.log`; report `app/build/reports/lint-results-debug.html` và `.txt`. |
+| Direct runner build `:app:assembleDebug :app:assembleDebugAndroidTest --no-daemon --console=plain` | PASS — `BUILD SUCCESSFUL`, 70 tasks, 5 executed/65 up-to-date. Log `app/build/reports/a06/20261020-143353-843-instrumentation-direct-build.log`. |
+| AndroidJUnitRunner trực tiếp trên `emulator-5554` | PASS — `OK (35 tests)`, 35 status pass, 0 failure, 0 skip. Bao gồm C02 Compose list/search/create/history/system Back/delete confirm, Room scope/search/FK/rollback/immutable Persona và các regression Navigation, Character, Settings, Room, FakeAiProvider. Raw log `app/build/reports/a06/20261020-143353-843-instrumentation-direct-runner.log`. APK app/test được cài bằng `adb -s emulator-5554 install -r`; không gỡ hoặc clear data. |
+| Process restart A-05, C-01, C-02 | PASS — mỗi luồng seed/verify/cleanup 1/1. C-02 xác nhận ba hội thoại, tên Character/Persona, message Unicode, conversation scope và sequence sau force-stop/launcher process mới. Log `app/build/reports/a06/20261020-143353-843-c02-restart-seed.log`, `...-verify.log`, `...-cleanup.log`; database UUID fixture được cleanup thành công. |
+| `git diff --check` | PASS — không có whitespace error; Git chỉ cảnh báo line endings LF sẽ chuẩn hóa sang CRLF theo cấu hình máy. |
+
+### Lỗi trung gian và giới hạn
+
+- Lần gọi Gradle trực tiếp ngoài script lỗi `Unable to establish loopback connection`; script dự án thiết lập JDK/SDK/TEMP/ADB chuẩn và build sau đó thành công. Lượt instrumentation đầu tiên phát hiện icon ngoài Material Icons Core, marker navigation Roleplay bị bỏ, assertion TextField chưa phù hợp semantics và kỳ vọng search restart sai; đã sửa nguyên nhân. Lượt cuối nêu trên chạy lại trọn suite và đạt.
+- 15 cảnh báo lint còn lại là warning hiện có/advisory tài nguyên và phiên bản dependency, 0 lỗi; không nâng thư viện. JUnit có warning deprecated `sun.misc.Unsafe` từ protobuf DataStore hiện có.
+- C-02 không thay schema/migration; dữ liệu người dùng không bị xóa hoặc reset. Chưa kiểm thử trên điện thoại thật trong C-02; instrumentation chạy trên emulator API 37. Các luồng message composer/AI vẫn thuộc nhiệm vụ sau.
+- C-01 vẫn deferred riêng đối với tính bất biến hồ sơ trong prompt. Không đánh dấu A-01 hay C-01 lại ngoài bằng chứng đã nêu.
+- Security pre-push, checkpoint và kết quả đồng bộ GitHub được ghi sau khi hoàn tất rà soát lịch sử chưa push.

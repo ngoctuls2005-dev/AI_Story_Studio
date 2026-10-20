@@ -264,6 +264,40 @@ function Invoke-C01PersonaRestartRegression {
         & $invokePhase 'cleanup' 'c01-restart-cleanup' | Out-Null
         throw
     }
+
+    Invoke-C02ConversationRestartRegression -Serial $Serial
+}
+
+function Invoke-C02ConversationRestartRegression {
+    param([Parameter(Mandatory = $true)][string]$Serial)
+
+    $databaseName = "c02_restart_$([guid]::NewGuid().ToString('N')).db"
+    $runner = 'com.hoangtu.aistorystudio.test/androidx.test.runner.AndroidJUnitRunner'
+    $testClass = 'com.hoangtu.aistorystudio.feature.roleplay.C02ConversationRestartInstrumentedTest'
+    $invokePhase = {
+        param([string]$Phase, [string]$LogName)
+        $result = Invoke-A06Adb -Serial $Serial -Arguments @(
+            'shell', 'am', 'instrument', '-w', '-r', '-e', 'class', $testClass,
+            '-e', 'phase', $Phase, '-e', 'databaseName', $databaseName, $runner
+        ) -LogName $LogName -Quiet
+        Assert-A06InstrumentationOutput -Output $result.Output
+        $result
+    }
+
+    Write-Host "C-02 Room process restart test bat dau tren $Serial voi database fixture rieng."
+    try {
+        $seed = & $invokePhase 'seed' 'c02-restart-seed'
+        Invoke-A06Adb -Serial $Serial -Arguments @('shell', 'am', 'force-stop', 'com.hoangtu.aistorystudio') -LogName 'c02-restart-force-stop' -Quiet | Out-Null
+        Invoke-A06Adb -Serial $Serial -Arguments @(
+            'shell', 'monkey', '-p', 'com.hoangtu.aistorystudio', '-c', 'android.intent.category.LAUNCHER', '1'
+        ) -LogName 'c02-restart-launch' -Quiet | Out-Null
+        $verify = & $invokePhase 'verify' 'c02-restart-verify'
+        $cleanup = & $invokePhase 'cleanup' 'c02-restart-cleanup'
+        Write-Host "C-02 process restart logs: $($seed.LogPath), $($verify.LogPath), $($cleanup.LogPath)"
+    } catch {
+        & $invokePhase 'cleanup' 'c02-restart-cleanup' | Out-Null
+        throw
+    }
 }
 
 function Assert-A06InstrumentationOutput {

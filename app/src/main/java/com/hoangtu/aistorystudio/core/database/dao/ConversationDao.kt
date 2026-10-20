@@ -9,6 +9,7 @@ import com.hoangtu.aistorystudio.core.database.entity.ChatMessageEntity
 import com.hoangtu.aistorystudio.core.database.entity.ConversationEntity
 import com.hoangtu.aistorystudio.core.database.entity.ConversationSummaryEntity
 import com.hoangtu.aistorystudio.core.database.entity.MessageVariantEntity
+import com.hoangtu.aistorystudio.core.database.model.ConversationHeader
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -24,6 +25,31 @@ interface ConversationDao {
 
     @Query("SELECT * FROM conversations ORDER BY updated_at DESC, id ASC")
     fun observeConversations(): Flow<List<ConversationEntity>>
+
+    @Query(
+        """
+        SELECT c.*, character_profiles.name AS character_name, user_personas.name AS persona_name
+        FROM conversations AS c
+        INNER JOIN character_profiles ON character_profiles.id = c.character_id
+        LEFT JOIN user_personas ON user_personas.id = c.persona_id
+        WHERE (:query = '' OR c.title LIKE '%' || :query || '%' COLLATE NOCASE
+            OR character_profiles.name LIKE '%' || :query || '%' COLLATE NOCASE
+            OR user_personas.name LIKE '%' || :query || '%' COLLATE NOCASE)
+        ORDER BY c.updated_at DESC, c.created_at DESC, c.id ASC
+        """
+    )
+    fun observeConversationHeaders(query: String): Flow<List<ConversationHeader>>
+
+    @Query(
+        """
+        SELECT c.*, character_profiles.name AS character_name, user_personas.name AS persona_name
+        FROM conversations AS c
+        INNER JOIN character_profiles ON character_profiles.id = c.character_id
+        LEFT JOIN user_personas ON user_personas.id = c.persona_id
+        WHERE c.id = :id
+        """
+    )
+    fun observeConversationHeader(id: String): Flow<ConversationHeader?>
 
     @Query("DELETE FROM conversations WHERE id = :id")
     suspend fun deleteConversation(id: String): Int
@@ -45,6 +71,9 @@ interface ConversationDao {
 
     @Query("SELECT COALESCE(MAX(sequence), 0) + 1 FROM chat_messages WHERE conversation_id = :conversationId")
     suspend fun nextMessageSequence(conversationId: String): Long
+
+    @Query("UPDATE conversations SET updated_at = MAX(updated_at, :updatedAt) WHERE id = :conversationId")
+    suspend fun updateConversationActivity(conversationId: String, updatedAt: Long)
 
     @Query("DELETE FROM chat_messages WHERE id = :id")
     suspend fun deleteMessage(id: String): Int

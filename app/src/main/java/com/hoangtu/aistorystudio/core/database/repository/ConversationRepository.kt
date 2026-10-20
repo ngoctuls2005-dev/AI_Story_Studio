@@ -7,12 +7,16 @@ import com.hoangtu.aistorystudio.core.database.entity.ChatMessageEntity
 import com.hoangtu.aistorystudio.core.database.entity.ConversationEntity
 import com.hoangtu.aistorystudio.core.database.entity.ConversationSummaryEntity
 import com.hoangtu.aistorystudio.core.database.entity.MessageVariantEntity
+import com.hoangtu.aistorystudio.core.database.model.ConversationHeader
 import kotlinx.coroutines.flow.Flow
 
 interface ConversationRepository {
+    suspend fun createConversation(conversation: ConversationEntity)
     suspend fun saveConversation(conversation: ConversationEntity)
     suspend fun getConversation(id: String): ConversationEntity?
     fun observeConversations(): Flow<List<ConversationEntity>>
+    fun observeConversationHeaders(query: String): Flow<List<ConversationHeader>>
+    fun observeConversationHeader(id: String): Flow<ConversationHeader?>
     suspend fun deleteConversation(id: String): Boolean
     suspend fun createConversationWithFirstMessage(
         conversation: ConversationEntity,
@@ -35,9 +39,29 @@ class RoomConversationRepository(
     private val database: StudioDatabase,
     private val dao: ConversationDao
 ) : ConversationRepository {
-    override suspend fun saveConversation(conversation: ConversationEntity) = dao.upsertConversation(conversation)
+    override suspend fun createConversation(conversation: ConversationEntity) {
+        database.withTransaction {
+            dao.insertConversation(conversation)
+        }
+    }
+
+    override suspend fun saveConversation(conversation: ConversationEntity) {
+        database.withTransaction {
+            val existing = dao.getConversation(conversation.id)
+            require(existing == null || existing.characterId == conversation.characterId) {
+                "Khong duoc chuyen cuoc hoi thoai sang nhan vat khac"
+            }
+            require(existing == null || existing.personaId == conversation.personaId) {
+                "Khong duoc doi Persona cua cuoc hoi thoai da tao"
+            }
+            dao.upsertConversation(conversation)
+        }
+    }
+
     override suspend fun getConversation(id: String) = dao.getConversation(id)
     override fun observeConversations() = dao.observeConversations()
+    override fun observeConversationHeaders(query: String) = dao.observeConversationHeaders(query.trim())
+    override fun observeConversationHeader(id: String) = dao.observeConversationHeader(id)
     override suspend fun deleteConversation(id: String) = dao.deleteConversation(id) > 0
 
     override suspend fun createConversationWithFirstMessage(
@@ -50,6 +74,7 @@ class RoomConversationRepository(
         database.withTransaction {
             dao.insertConversation(conversation)
             dao.insertMessage(firstMessage.copy(sequence = 1L))
+            dao.updateConversationActivity(conversation.id, firstMessage.createdAt)
         }
     }
 
@@ -60,6 +85,7 @@ class RoomConversationRepository(
             }
             val sequencedMessage = message.copy(sequence = dao.nextMessageSequence(message.conversationId))
             dao.insertMessage(sequencedMessage)
+            dao.updateConversationActivity(message.conversationId, message.createdAt)
             sequencedMessage
         }
 
@@ -77,6 +103,7 @@ class RoomConversationRepository(
                 }
                 dao.upsertMessage(message)
             }
+            dao.updateConversationActivity(message.conversationId, message.createdAt)
         }
     }
     override fun observeMessages(conversationId: String) = dao.observeMessages(conversationId)
