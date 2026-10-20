@@ -2,7 +2,7 @@
 
 ## Phạm vi và quy tắc báo cáo
 
-Kế hoạch bao phủ nền tảng A-01 và các luồng V1.0 được nêu trong docs/BACKLOG_V1.md. A-03 hiện có instrumentation test thực cho thao tác Room, scope, persistence và schema V1; các luồng chat, memory retrieval/Context Builder, backup và autosave vẫn chưa được triển khai.
+Kế hoạch bao phủ nền tảng A-01 và các luồng V1.0 được nêu trong docs/BACKLOG_V1.md. Room hiện có kiểm thử schema/migration V1→V2, CRUD, scope và persistence; C-01 bổ sung Compose UI cho hồ sơ nhân vật/Persona. Các luồng chat, memory retrieval/Context Builder, backup và autosave vẫn chưa được triển khai.
 
 - **PASS:** lệnh/kịch bản chạy xong và có kết quả quan sát được.
 - **FAIL:** đã chạy nhưng có assertion, build hoặc hành vi không đạt.
@@ -55,7 +55,7 @@ Lệnh Windows PowerShell:
     adb install -r .\app\build\outputs\apk\debug\app-debug.apk
     adb shell monkey -p com.hoangtu.aistorystudio -c android.intent.category.LAUNCHER 1
 
-## Kiểm thử A-03 — Room V1
+## Kiểm thử A-03 — Room nền tảng
 
 Instrumentation tests nằm tại `app/src/androidTest/java/com/hoangtu/aistorystudio/core/database/` và chạy bằng AndroidJUnitRunner. Dữ liệu test dùng in-memory DB hoặc tên DB riêng có UUID; test persistence chỉ xóa chính DB tạm do test tạo.
 
@@ -149,10 +149,21 @@ Trước A-06, Gradle từng hoàn tất với report 0 test khi Gradle worker v
 | Thiết bị | Android 12 và 13 theo backlog; thêm API khác khi có thiết bị | Luồng trọng yếu chạy trên thiết bị thật; ghi model/API, kết quả và issue cụ thể. |
 | Stress | 100+ chat turns, novel 20 chương/>200.000 ký tự, nhiều revisions | Không mất dữ liệu/ANR; lưu số đo baseline và ghi rõ cấu hình thiết bị. |
 
+## Kiểm thử C-01 — hồ sơ nhân vật và Persona
+
+| Loại | Kịch bản | Bằng chứng bắt buộc |
+|---|---|---|
+| Unit | Tên bắt buộc, tuổi dạng số và giới hạn tuổi trưởng thành 18–120; tên Persona hợp lệ | JUnit với kết quả lỗi xác định. |
+| Room/instrumentation | Tạo, đọc, sửa, xóa; Unicode; trường tuổi/ngoại hình/bối cảnh/tính cách/xưng hô/quy tắc | Entity đọc lại khớp nội dung, không ghi dữ liệu khi validation thất bại. |
+| Persona | Tạo/sửa/xóa, chuyển Persona mặc định, chọn ID không tồn tại | Tối đa một Persona mặc định; ID sai không làm mất lựa chọn cũ. |
+| Foreign Key | Xóa hồ sơ/Persona đang có hội thoại tham chiếu | Repository trả `REFERENCED`; bản ghi cha và hội thoại còn nguyên. |
+| Compose UI | Tạo, xem đầy đủ, sửa, xác nhận xóa, tìm theo tên và validation | Compose test trên emulator với in-memory Room; không truy vấn DAO trong Composable. |
+| Khởi động lại | Seed database test riêng → force-stop app → mở lại → verify → cleanup | AndroidJUnitRunner trên emulator; database có tên fixture ngẫu nhiên, không chạm DB người dùng. |
+
 ## Test dữ liệu và migration
 
 - Dùng fixture riêng, định danh ổn định, không dựa vào DB thật của người dùng.
-- Mỗi schema Room cần schema export vào repository, migration có tên và MigrationTestHelper xác nhận bản ghi/nội dung trước-sau khi xuất hiện migration thật. A-03 đã xác nhận tạo/validate schema V1; chưa giả lập đường nâng version.
+- Mỗi schema Room cần schema export vào repository, migration có tên và MigrationTestHelper xác nhận bản ghi/nội dung trước-sau khi xuất hiện migration thật. C-01 thêm migration V1→V2; dữ liệu V1 của nhân vật, Persona và hội thoại phải được kiểm tra trước/sau.
 - Cấm destructive migration fallback. Không xóa DB thật để làm test pass.
 - Kiểm thử trộn scope với tối thiểu hai nhân vật, hai cuộc hội thoại, hai novel; kết quả truy vấn phải giữ đúng owner và project.
 

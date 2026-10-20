@@ -19,6 +19,8 @@ data class UserPersonaEntity(
     val firstPerson: String = "",
     @ColumnInfo(name = "second_person")
     val secondPerson: String = "",
+    @ColumnInfo(name = "is_default")
+    val isDefault: Boolean = false,
     @ColumnInfo(name = "created_at")
     val createdAt: Long,
     @ColumnInfo(name = "updated_at")

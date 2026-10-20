@@ -26,6 +26,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.hoangtu.aistorystudio.feature.characters.CharactersScreen
+import com.hoangtu.aistorystudio.feature.characters.CharacterManagementViewModel
 import com.hoangtu.aistorystudio.feature.home.HomeScreen
 import com.hoangtu.aistorystudio.feature.library.LibraryScreen
 import com.hoangtu.aistorystudio.feature.novel.NovelScreen
@@ -34,7 +35,10 @@ import com.hoangtu.aistorystudio.feature.settings.SettingsScreen
 import com.hoangtu.aistorystudio.feature.settings.SettingsViewModel
 
 @Composable
-fun StudioApp(settingsViewModel: SettingsViewModel) {
+fun StudioApp(
+    settingsViewModel: SettingsViewModel,
+    characterViewModel: CharacterManagementViewModel
+) {
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route ?: StudioDestination.HOME.route
@@ -70,6 +74,7 @@ fun StudioApp(settingsViewModel: SettingsViewModel) {
                 StudioNavHost(
                     navController = navController,
                     settingsViewModel = settingsViewModel,
+                    characterViewModel = characterViewModel,
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxHeight()
@@ -144,6 +149,7 @@ private fun StudioNavigationRail(
 private fun StudioNavHost(
     navController: NavHostController,
     settingsViewModel: SettingsViewModel,
+    characterViewModel: CharacterManagementViewModel,
     modifier: Modifier = Modifier
 ) {
     NavHost(
@@ -165,7 +171,7 @@ private fun StudioNavHost(
             NovelScreen()
         }
         composable(StudioDestination.CHARACTERS.route) {
-            CharactersScreen()
+            CharactersScreen(characterViewModel)
         }
         composable(StudioDestination.LIBRARY.route) {
             LibraryScreen()

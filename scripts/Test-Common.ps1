@@ -225,10 +225,43 @@ function Invoke-A06ProcessRestartRegression {
         ) -LogName 'process-restart-cleanup' -Quiet
         Assert-A06InstrumentationOutput -Output $cleanup.Output
         Write-Host "Process restart logs: $($seed.LogPath), $($verify.LogPath), $($cleanup.LogPath)"
+        Invoke-C01PersonaRestartRegression -Serial $Serial
     } catch {
         Invoke-A06Adb -Serial $Serial -Arguments @(
             'shell', 'am', 'instrument', '-w', '-r', '-e', 'class', $testClass, '-e', 'phase', 'cleanup', '-e', 'providerId', $providerId, $runner
         ) -LogName 'process-restart-cleanup' -Quiet | Out-Null
+        throw
+    }
+}
+
+function Invoke-C01PersonaRestartRegression {
+    param([Parameter(Mandatory = $true)][string]$Serial)
+
+    $databaseName = "c01_restart_$([guid]::NewGuid().ToString('N')).db"
+    $runner = 'com.hoangtu.aistorystudio.test/androidx.test.runner.AndroidJUnitRunner'
+    $testClass = 'com.hoangtu.aistorystudio.feature.characters.C01PersonaRestartInstrumentedTest'
+    $invokePhase = {
+        param([string]$Phase, [string]$LogName)
+        $result = Invoke-A06Adb -Serial $Serial -Arguments @(
+            'shell', 'am', 'instrument', '-w', '-r', '-e', 'class', $testClass,
+            '-e', 'phase', $Phase, '-e', 'databaseName', $databaseName, $runner
+        ) -LogName $LogName -Quiet
+        Assert-A06InstrumentationOutput -Output $result.Output
+        $result
+    }
+
+    Write-Host "C-01 Room persistence restart test bat dau tren $Serial voi database test rieng."
+    try {
+        $seed = & $invokePhase 'seed' 'c01-restart-seed'
+        Invoke-A06Adb -Serial $Serial -Arguments @('shell', 'am', 'force-stop', 'com.hoangtu.aistorystudio') -LogName 'c01-restart-force-stop' -Quiet | Out-Null
+        Invoke-A06Adb -Serial $Serial -Arguments @(
+            'shell', 'monkey', '-p', 'com.hoangtu.aistorystudio', '-c', 'android.intent.category.LAUNCHER', '1'
+        ) -LogName 'c01-restart-launch' -Quiet | Out-Null
+        $verify = & $invokePhase 'verify' 'c01-restart-verify'
+        $cleanup = & $invokePhase 'cleanup' 'c01-restart-cleanup'
+        Write-Host "C-01 process restart logs: $($seed.LogPath), $($verify.LogPath), $($cleanup.LogPath)"
+    } catch {
+        & $invokePhase 'cleanup' 'c01-restart-cleanup' | Out-Null
         throw
     }
 }

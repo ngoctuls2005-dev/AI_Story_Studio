@@ -50,7 +50,7 @@ abstract class StudioDatabase : RoomDatabase() {
     abstract fun memoryFactDao(): MemoryFactDao
 
     companion object {
-        const val VERSION = 1
+        const val VERSION = 2
         const val DATABASE_NAME = "ai_story_studio.db"
 
         @Volatile

@@ -15,10 +15,15 @@ data class CharacterProfileEntity(
     val id: String = UUID.randomUUID().toString(),
     val name: String,
     val description: String = "",
+    val age: Int? = null,
+    val appearance: String = "",
+    val background: String = "",
     val personality: String = "",
     val relationship: String = "",
     @ColumnInfo(name = "speaking_style")
     val speakingStyle: String = "",
+    @ColumnInfo(name = "roleplay_rules")
+    val roleplayRules: String = "",
     @ColumnInfo(name = "created_at")
     val createdAt: Long,
     @ColumnInfo(name = "updated_at")

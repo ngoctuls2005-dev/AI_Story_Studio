@@ -18,6 +18,7 @@ import com.hoangtu.aistorystudio.core.database.repository.RoomCharacterRepositor
 import com.hoangtu.aistorystudio.core.database.repository.RoomConversationRepository
 import com.hoangtu.aistorystudio.core.database.repository.RoomMemoryFactRepository
 import com.hoangtu.aistorystudio.core.database.repository.RoomNovelRepository
+import com.hoangtu.aistorystudio.core.database.repository.CharacterDeleteResult
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -68,7 +69,7 @@ class A03RoomInstrumentedTest {
             repository.saveProfile(updated)
             assertEquals(updated, repository.getProfile(profile.id))
             assertEquals(updated, repository.observeProfiles().first().single())
-            assertTrue(repository.deleteProfile(profile.id))
+            assertEquals(CharacterDeleteResult.DELETED, repository.deleteProfile(profile.id))
             assertNull(repository.getProfile(profile.id))
 
             val persona = UserPersonaEntity(
@@ -84,8 +85,8 @@ class A03RoomInstrumentedTest {
             assertEquals(persona, repository.getPersona(persona.id))
             repository.savePersona(persona.copy(name = "Người kể", updatedAt = 2L))
             assertEquals("Người kể", repository.observePersonas().first().single().name)
-            assertTrue(repository.deletePersona(persona.id))
-            assertFalse(repository.deletePersona(persona.id))
+            assertEquals(CharacterDeleteResult.DELETED, repository.deletePersona(persona.id))
+            assertEquals(CharacterDeleteResult.NOT_FOUND, repository.deletePersona(persona.id))
         }
     }
 
@@ -269,9 +270,8 @@ class A03RoomInstrumentedTest {
             )
             val parent = conversation("parent-conversation", "parent-character")
             dao.upsertConversation(parent)
-            val restrictedDelete = runCatching { characterRepository.deleteProfile("parent-character") }.exceptionOrNull()
-            assertNotNull(restrictedDelete)
-            assertTrue(restrictedDelete is SQLiteConstraintException)
+            val restrictedDelete = characterRepository.deleteProfile("parent-character")
+            assertEquals(CharacterDeleteResult.REFERENCED, restrictedDelete)
             assertNotNull(characterRepository.getProfile("parent-character"))
             dao.upsertMessage(message("child-message", parent.id, "Nội dung"))
             assertEquals(1, dao.deleteConversation(parent.id))

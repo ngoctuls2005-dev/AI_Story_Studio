@@ -17,10 +17,10 @@ Các quyết định dưới đây ghi lại hướng thiết kế và trạng t
 
 ## ADR-003 — Room là nguồn chính cho nội dung
 
-- **Trạng thái:** đã triển khai nền tảng schema V1 trong A-03.
+- **Trạng thái:** schema V1 được tạo ở A-03; C-01 bổ sung schema V2 bằng migration không phá hủy.
 - **Quyết định:** lưu hồ sơ, chat, messages, variants, novel, chapters, scenes, revisions, memories, summaries và timeline trong Room. DataStore dùng cho tùy chọn và metadata cấu hình.
 - **Lý do:** dữ liệu quan hệ, truy vấn theo scope và transaction cần migration có kiểm soát.
-- **Ràng buộc:** schema export tại `app/schemas/com.hoangtu.aistorystudio.core.database.StudioDatabase/1.json`; không fallback destructive, không xóa/reset DB khi lỗi. MigrationTestHelper kiểm tra schema V1. Migration V1→V2 thật chỉ được thêm khi có thay đổi schema thật và phải có test bảo toàn dữ liệu.
+- **Ràng buộc:** lưu cả schema V1 và V2 tại `app/schemas/com.hoangtu.aistorystudio.core.database.StudioDatabase/`; không fallback destructive, không xóa/reset DB khi lỗi. MigrationTestHelper kiểm tra schema và dữ liệu V1 trước/sau khi nâng phiên bản.
 
 ## ADR-004 — Provider AI qua abstraction và streaming
 
@@ -80,7 +80,15 @@ Các quyết định dưới đây ghi lại hướng thiết kế và trạng t
 - **Quyết định:** Room runtime/compiler/testing 2.8.5; KSP 2.3.12; schema bắt đầu ở version 1 và xuất vào thư mục được Git quản lý. `room-ktx` không thêm riêng vì API Coroutines/Flow đã có trong Room runtime hiện tại.
 - **Lý do:** các phiên bản tương thích với AGP 9.4.1, Gradle 9.6.0 và Kotlin Compose plugin 2.2.10; KSP task sinh implementation DAO thành công.
 - **Tương thích MigrationTestHelper:** Room testing 2.8.5 cần kotlinx-serialization-core 1.8.1. Navigation/lifecycle hiện kéo 1.7.3; dependency runtime được căn về 1.8.1 để tránh `AbstractMethodError` khi đọc schema export.
-- **Giới hạn:** hiện chưa có migration nâng version. Không tăng DB version chỉ để tạo migration giả; thay đổi schema tiếp theo phải thêm migration có tên và test V1→V2 với dữ liệu fixture.
+- **Giới hạn:** không tăng DB version chỉ để tạo migration giả; thay đổi schema tiếp theo phải thêm migration có tên và kiểm thử dữ liệu fixture từ phiên bản cũ.
+
+## ADR-014 — Mở rộng hồ sơ nhân vật và Persona ở C-01
+
+- **Trạng thái:** đã áp dụng trong C-01; cần giữ nguyên quy tắc migration không phá hủy.
+- **Quyết định:** schema V2 thêm `age` nullable, `appearance`, `background`, `roleplay_rules` vào `character_profiles` và `is_default` vào `user_personas`. Tuổi để nullable để không tự suy diễn tuổi cho dữ liệu V1; form tạo/sửa mới chỉ lưu tuổi 18–120. Trường văn bản thêm mới của hồ sơ cũ nhận chuỗi rỗng.
+- **Persona mặc định:** lưu cờ trên bản ghi Persona trong Room. Một DAO transaction xác nhận ID tồn tại rồi cập nhật lựa chọn bằng một câu SQL để chỉ có tối đa một mặc định; Persona V1 được migrate với cờ `false`. Xóa Persona/nhân vật đang có hội thoại tham chiếu trả kết quả `REFERENCED`, không xóa hoặc ghi log nội dung.
+- **Lý do:** mô tả chung không thể validate tuổi trưởng thành hoặc hiển thị riêng ngoại hình, bối cảnh và quy tắc; lựa chọn Persona cần lưu cùng dữ liệu và thay đổi nguyên tử, không tạo ID tham chiếu mồ côi ở DataStore.
+- **Migration:** `StudioDatabaseMigrations.MIGRATION_1_2` chỉ thêm cột có giá trị bảo toàn; MigrationTestHelper xác nhận hồ sơ, Persona, hội thoại và các khóa cũ tồn tại sau khi migrate. Không dùng destructive migration.
 
 ## ADR-012 — Xác minh test runner và cô lập thiết bị
 

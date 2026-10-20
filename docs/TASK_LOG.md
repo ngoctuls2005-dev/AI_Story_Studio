@@ -417,3 +417,57 @@ Trong các lượt trung gian, runner phát hiện assertion A-05 giả định 
 - Việc kiểm tra bảo toàn dữ liệu không đọc nội dung hoặc đối chiếu hash từng file; bằng chứng là cùng chữ ký, `install -r`, `firstInstallTime` không đổi và số mục `files` không giảm. Không tuyên bố kiểm chứng byte-for-byte.
 - Ảnh chụp giao diện tạm được lưu trong `app/build/a01-device-preflight/screen-home.png` (đường dẫn bị Git ignore); ảnh có banner thông báo hệ thống cá nhân nên không được thêm vào tài liệu/Git. Yêu cầu xóa artifact tạm bị công cụ thực thi chặn; file hiện vẫn nằm cục bộ. XML hierarchy và APK đã pull vào cùng thư mục build cũng là artifact ignored.
 - Không chạy unit/instrumentation regression trong lượt này; đã thực hiện đúng build và smoke test A-01. Không triển khai nhiệm vụ khác.
+
+## C-01 — Quản lý nhân vật AI và User Persona — 20/10/2026
+
+### Kiểm tra trước khi triển khai
+
+- Đọc `AGENTS.md`, toàn bộ `docs/BACKLOG_V1.md`, `docs/ARCHITECTURE.md`, `docs/DECISIONS.md`, `docs/ROADMAP.md`, `docs/TEST_PLAN.md` và `docs/TASK_LOG.md`. Backlog C-01 yêu cầu CRUD hồ sơ có tuổi trưởng thành, tính cách, xưng hô và quy tắc nhập vai; CRUD/chọn Persona; dữ liệu còn sau khi đóng/mở; hồ sơ gốc không bị prompt tự sửa.
+- Git trước khi sửa: working tree sạch trên `main`, HEAD `972eeb8` (`Record physical navigation smoke observation`), local ahead `origin/main` 6 commit. Không push.
+- Bằng chứng nhiệm vụ nền đã đọc trong TASK_LOG: A-01 PASS sau cài/mở APK trên Xiaomi Android 13/API 33; A-02 có hồi quy 6 route/Back/lifecycle trên emulator; A-03 có Room CRUD/FK/persistence/schema V1; A-05 có Settings/Keystore/DataStore test; A-06 có test harness và emulator regression. A-04 đã kiểm thử abstraction/FakeAiProvider, nhưng chính TASK_LOG ghi Chat UI và Novel Editor chưa tồn tại nên tiêu chí consumer offline chưa được kiểm chứng; không coi phần tích hợp đó là PASS.
+- Môi trường lượt này: Windows 11, Gradle Wrapper 9.6.0, Android Studio JBR/Gradle daemon JDK 25, Android SDK 37. Có điện thoại `101819060506` và emulator `emulator-5554`; instrumentation chỉ chạy trên emulator API 37 theo guard của `scripts/test-all.ps1`.
+- Schema V1 được kiểm tra trực tiếp: nhân vật có mô tả chung, personality, relationship và speaking style; chưa có tuổi riêng, ngoại hình, bối cảnh, roleplay rules. Persona chưa có trạng thái mặc định. Do các trường có validation/hiển thị riêng và backlog yêu cầu chọn Persona, C-01 thêm migration thật V1→V2; không nhét dữ liệu có cấu trúc vào `description`, không đổi ID cũ và không dùng destructive migration.
+
+### Chia nhỏ và triển khai
+
+1. Đối chiếu entity/DAO/repository, FK `RESTRICT` và schema V1.
+2. Thêm cột V2 với giá trị mặc định bảo toàn, export schema và MigrationTestHelper kiểm tra dữ liệu V1.
+3. Thêm use case, validation, ViewModel/StateFlow và kết nối repository qua composition root.
+4. Thay màn hình placeholder bằng UI tiếng Việt cho danh sách/tìm kiếm, xem hồ sơ, tạo/sửa, xóa có xác nhận và quản lý Persona.
+5. Bổ sung unit, repository, migration, process-restart và Compose instrumentation tests; chạy hồi quy; rà secrets/diff.
+
+### Thay đổi chính
+
+- `CharacterProfileEntity` thêm `age` nullable, `appearance`, `background`, `roleplayRules`; `UserPersonaEntity` thêm `isDefault`. Tuổi V1 được để `NULL` vì không thể suy ra tuổi cũ; form ghi mới chỉ chấp nhận 18–120. Các trường chuỗi mới dùng `''` cho bản ghi V1.
+- `StudioDatabase.VERSION` tăng 1→2; `StudioDatabaseMigrations.MIGRATION_1_2` chỉ `ALTER TABLE`, được đăng ký trong database. Lưu `app/schemas/.../1.json` hiện có và schema mới `app/schemas/.../2.json`.
+- `CharacterDao` tìm theo tên và chọn Persona mặc định trong transaction. ID không tồn tại không xóa lựa chọn cũ; khi chọn Persona khác, một câu `UPDATE` đặt tối đa một hàng mặc định.
+- `CharacterRepository` trả `DELETED`/`NOT_FOUND`/`REFERENCED`; lỗi FK `RESTRICT` được ánh xạ thành kết quả nghiệp vụ, không log nội dung hồ sơ. Hàng nhân vật/Persona đang được hội thoại tham chiếu được giữ nguyên.
+- Thêm `CharacterManagementUseCases`, `CharacterManagementViewModel`, validator và factory. UI gọi sự kiện qua ViewModel; không gọi DAO trong Composable. ID mới do UUID sinh; khi sửa, giữ nguyên ID/createdAt; nếu bản ghi đã bị xóa giữa lúc mở form và lưu thì không tái tạo ngầm.
+- `CharactersScreen` có tab Nhân vật/Persona, tìm theo tên, danh sách rỗng/loading/error, form cuộn được với `imePadding`, xem đầy đủ thông tin và hộp xác nhận xóa. Theme Material 3 sáng/tối và UTF-8 tiếng Việt hiện có được dùng lại.
+- `scripts/Test-Common.ps1` bổ sung pha process-restart cho Room trên database fixture riêng; script chỉ chạy khi `Select-A06Emulator` xác nhận serial là emulator.
+- Cập nhật `docs/ARCHITECTURE.md`, `docs/DECISIONS.md` (ADR-014) và `docs/TEST_PLAN.md` theo schema/UI hiện tại.
+
+### Build và kiểm thử cuối cùng
+
+| Lệnh / kịch bản | Kết quả quan sát |
+|---|---|
+| `.\scripts\test-all.ps1 -DeviceSerial emulator-5554` | PASS ở lượt cuối `20261020-140810-100`: harness chấp nhận fixture 1/1 và từ chối 0 test/skip; Gradle build + unit + lint thành công; AndroidJUnitRunner trực tiếp trên AVD API 37. Script dùng `adb install -r`, không dùng `uninstall` hoặc `pm clear`. |
+| `:app:assembleDebug`, `:app:testDebugUnitTest`, `:app:lintDebug` (được gọi bởi script với `--rerun-tasks --no-daemon --console=plain`) | PASS — `BUILD SUCCESSFUL`; unit test 29, failures 0, errors 0, skipped 0; lint 0 error, 15 warning. Cảnh báo gồm advisory phiên bản, resource mẫu chưa dùng và redundant manifest label; không đổi thư viện theo advisory. Có cảnh báo JDK `sun.misc.Unsafe` từ DataStore protobuf trong test log. |
+| `:app:assembleDebugAndroidTest` (direct runner build) | PASS — `BUILD SUCCESSFUL`, APK app và test được tạo/cài trên `emulator-5554`. |
+| AndroidJUnitRunner toàn bộ suite | PASS — 26 test, 26 passed, 0 failure, 0 skip; gồm migration V1→V2 bảo toàn dữ liệu, C01 CRUD/FK/default/reopen/Compose, cùng regression Navigation, Settings, Room và FakeAiProvider. |
+| A-05 process restart regression | PASS — `seed`, `verify`, `cleanup` mỗi pha 1/1 sau force-stop/launch; log dưới `app/build/reports/a06/20261020-140810-100-process-restart-*.log`. |
+| C-01 Room process restart | PASS — seed profile/Persona giả vào DB có tên ngẫu nhiên riêng, force-stop ứng dụng, mở lại, đọc lại tuổi/danh tính/Persona mặc định, cleanup; seed/verify/cleanup mỗi pha 1/1. Log: `app/build/reports/a06/20261020-140810-100-c01-restart-*.log`. DB kiểm thử không dùng tên DB production và được script dọn thành công. |
+| `git diff --check` | PASS — không có whitespace error; Git báo cảnh báo chuyển line ending LF→CRLF cho các file Kotlin/PowerShell đã sửa. |
+| Rà secrets và artifact | PASS — quét file thay đổi không thấy mẫu API key/token/private key/mật khẩu; không có `local.properties`, `.env`, keystore hoặc APK/build/cache được thêm vào Git. `app/schemas/2.json` nằm trong thay đổi cần commit. |
+
+### Lỗi trung gian đã sửa
+
+- Lượt instrument đầu có 2/26 test lỗi do matcher `assertTextContains` không khớp semantics có dấu như dự kiến và test Persona chọn tag không duy nhất. Đổi sang so khớp text chính xác và content description duy nhất; lượt cuối đạt 26/26.
+- Lượt kế tiếp không biên dịch androidTest vì Compose test artifact hiện tại không có `onLast()`; thay bằng `onNodeWithContentDescription` cụ thể. Đây là lỗi test harness đã sửa; không có lỗi build/test còn lại ở lượt cuối.
+
+### Kết luận nghiệm thu
+
+- CRUD nhân vật/Persona, xem hồ sơ, tìm theo tên, validation tuổi trưởng thành, chọn Persona mặc định, FK RESTRICT, Unicode, giữ nguyên dữ liệu V1 và khôi phục database sau process restart đã có test thực chạy trên emulator API 37.
+- **C-01 đạt phần triển khai và kiểm thử quản lý dữ liệu, nhưng chưa đóng đầy đủ tiêu chí backlog.** Tiêu chí “prompt không tự sửa hồ sơ gốc” chưa thể kiểm chứng vì chưa có prompt/context consumer; A-04 cũng đã ghi nhận Chat UI/Novel Editor chưa tồn tại. Không thêm Chat UI hoặc ContextBuilder trong C-01 để tạo bằng chứng giả. Cần kiểm tra lại tính bất biến hồ sơ khi có prompt/context consumer thuộc task phù hợp.
+- Không kiểm thử instrumentation trên điện thoại cá nhân; không thay đổi dữ liệu ứng dụng trên điện thoại. Không nâng AGP, Gradle, Kotlin, SDK hoặc thư viện.
+- Checkpoint Git cục bộ được tạo sau rà soát diff; không push.

@@ -6,12 +6,13 @@
 ## Hiện trạng dự án
 
 - Dự án hiện có một Gradle module Android tên :app, Kotlin và Jetpack Compose với Material 3.
-- A-02 đã thêm Compose Navigation, theme Material 3 sáng/tối, thanh điều hướng thích ứng và sáu màn hình khung. Các màn Roleplay, Novel, Characters, Library và Settings hiện chỉ hiển thị trạng thái rỗng/thông tin; chưa có nghiệp vụ sản phẩm.
-- Navigation nằm trong `core.navigation`; thành phần giao diện dùng chung ở `core.ui`; từng màn hình thuộc package `feature.*`. UI hiện chưa có ViewModel theo feature.
-- A-03 đã thêm Room 2.8.5, schema V1, 14 Entity, bốn DAO và repository theo nhóm dữ liệu. Room lưu hồ sơ/persona, hội thoại/messages/variants/summary, dự án/chương/cảnh/revisions/liên kết nhân vật, memory facts, novel summaries và timeline. Schema được quản lý tại `app/schemas/com.hoangtu.aistorystudio.core.database.StudioDatabase/1.json`.
+- A-02 đã thêm Compose Navigation, theme Material 3 sáng/tối, thanh điều hướng thích ứng và sáu màn hình. Roleplay, Novel, Library và Settings có khung/thiết lập hiện có; Characters đã có quản lý hồ sơ và Persona sau C-01.
+- Navigation nằm trong `core.navigation`; thành phần giao diện dùng chung ở `core.ui`; từng màn hình thuộc package `feature.*`. C-01 áp dụng Compose UI → `CharacterManagementViewModel` → `CharacterManagementUseCases` → `CharacterRepository`.
+- A-03 tạo Room 2.8.5, schema V1, 14 Entity, bốn DAO và repository theo nhóm dữ liệu. C-01 nâng an toàn lên schema V2 bằng migration V1→V2 có kiểm thử bảo toàn dữ liệu. Schema 1 và 2 được quản lý tại `app/schemas/com.hoangtu.aistorystudio.core.database.StudioDatabase/`.
 - A-05 đã thêm Preferences DataStore riêng cho cấu hình provider, repository và Settings ViewModel/UI. API key chỉ lưu dưới dạng AES-GCM ciphertext; Android Keystore giữ từng khóa AES không xuất được. Chưa có OkHttp/SSE hoặc nghiệp vụ chat/soạn thảo.
 - A-04 bổ sung abstraction `core.ai.AiProvider` nhận danh sách message trung lập với provider/model và trả `Flow<AiStreamEvent>`. `FakeAiProvider` dùng fixture offline; chưa có provider mạng, cấu hình endpoint hay kết nối từ UI.
-- A-01 vẫn chưa đạt đầy đủ. Điện thoại Xiaomi API 33 đã được ADB nhận diện trong lúc làm A-03 nhưng từ chối cài APK với `INSTALL_FAILED_USER_RESTRICTED`; smoke test điện thoại thật chưa được xác nhận. Xem docs/TASK_LOG.md.
+- A-01 đã đạt theo smoke test trên điện thoại Xiaomi Android 13/API 33 ngày 20/10/2026; xem bằng chứng, phạm vi so sánh dữ liệu và giới hạn trong `docs/TASK_LOG.md`.
+- C-01 thêm CRUD nhân vật/Persona, validation tuổi trưởng thành, chọn Persona mặc định lưu trong Room, xử lý xóa bị FK RESTRICT chặn và tìm theo tên. Các luồng chat, memory retrieval/Context Builder, backup và autosave chưa triển khai.
 
 ## Nguyên tắc
 
@@ -73,7 +74,7 @@ Không tạo sẵn package rỗng chỉ để khớp sơ đồ. Tạo từng ph�
 - **ViewModel:** chuyển intent thành lời gọi Use Case; công bố StateFlow. Hủy stream theo lifecycle hoặc thao tác Stop.
 - **Use Case:** điều phối quy tắc, transaction cần thiết, Context Builder và luồng AI. Không chứa chi tiết Compose, SQL hay HTTP.
 - **Repository:** domain khai báo interface; data cung cấp implementation. DAO chỉ được gọi qua repository/use case.
-- **Room hiện tại:** `StudioDatabase` version 1, export schema bật; các lệnh DAO one-shot dùng `suspend`, các truy vấn quan sát dùng `Flow`. FK/index và thứ tự dữ liệu được định nghĩa theo scope. Không cấu hình destructive fallback. Chưa có migration thật vì chưa tồn tại schema cũ.
+- **Room hiện tại:** `StudioDatabase` version 2, export schema bật; schema V1 còn trong Git và có migration V1→V2 có tên cùng test dữ liệu cũ. Các lệnh DAO one-shot dùng `suspend`, truy vấn quan sát dùng `Flow`. Không cấu hình destructive fallback.
 - **Repository hiện tại:** bốn nhóm repository bọc DAO; `withTransaction` bảo vệ tạo hội thoại/message đầu, thêm message theo sequence, cấp số thứ tự novel và cập nhật summary. Memory chỉ chấp nhận đúng một owner, và repository chặn việc đổi owner của memory/message/summary.
 - **Xóa dữ liệu:** hội thoại được tham chiếu bởi hồ sơ/persona dùng `RESTRICT`; con của hội thoại/chapter/project dùng `CASCADE`; liên kết Novel-character bị xóa cùng project hoặc character. Xóa project xóa toàn bộ nội dung con của project. Xóa nhân vật đang được hội thoại tham chiếu bị từ chối. Memory fact được đánh dấu tombstone bằng `deleted_at`; truy vấn thông thường bỏ qua fact đã xóa.
 - **DataStore hiện tại:** file Preferences `ai_provider_settings.preferences_pb` lưu provider ID/name, URL, model, tham số, provider đang chọn và ciphertext/IV/alias. Không lưu API key dạng rõ. File này bị loại khỏi cloud backup, device transfer và legacy Auto Backup rules; khi bổ sung archive backup thủ công, phải tiếp tục loại trừ toàn bộ cấu hình provider.
@@ -96,7 +97,7 @@ Không tạo sẵn package rỗng chỉ để khớp sơ đồ. Tạo từng ph�
 - Mỗi token được mã hóa bằng AES-256-GCM với khóa không xuất được do Android Keystore quản lý; IV và authentication tag được lưu cùng ciphertext trong Preferences DataStore riêng. Xóa token xóa ciphertext/IV/alias khỏi DataStore rồi xóa entry Keystore; nếu thao tác dọn alias thất bại, ciphertext vẫn đã bị xóa và UI báo việc dọn dẹp còn lại.
 - Thay key tạo alias mới trước, cập nhật ciphertext/alias bằng một lần ghi DataStore, sau đó xóa alias cũ. Nếu ghi DataStore thất bại/đã bị hủy, không xóa alias mới để tránh trường hợp transaction đã commit nhưng ciphertext mất khóa; có thể còn alias Keystore mồ côi nhưng không có payload tham chiếu. Không có cơ chế backup/import cho các alias này.
 - DataStore Preferences mặc định được đưa vào Android Auto Backup và device-to-device transfer; A-05 thêm rule loại trừ file cấu hình này cho cloud, device transfer và Android 11 trở xuống. Đây không phải chính sách backup hoàn chỉnh cho dữ liệu truyện; D-05 vẫn phải kiểm soát dữ liệu người dùng theo lựa chọn sản phẩm.
-- Room migration phải giữ dữ liệu cũ. Schema V1 đã export và có kiểm thử `MigrationTestHelper` xác nhận tạo/validate schema V1; quy trình V1→V2 được mô tả trong TEST_PLAN. Chưa có đường migration V1→V2 để chạy vì chưa có schema V2.
+- Room migration phải giữ dữ liệu cũ. C-01 thêm migration V1→V2: tuổi cũ để `NULL`, trường mô tả mới dùng chuỗi rỗng, Persona cũ không tự thành mặc định; MigrationTestHelper xác nhận hồ sơ, Persona, hội thoại và khóa liên kết V1 vẫn còn. Không có destructive migration fallback.
 - Khi lưu bản nháp, revision mới hoặc stream đang chạy, transaction và trạng thái phải thể hiện dữ liệu nào hoàn chỉnh, dang dở hoặc lỗi.
 
 ## Build và kiểm chứng
